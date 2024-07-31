@@ -36,17 +36,19 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 	{
 	m_sWheelTurningParams.Init();
 
-	initTargets();
+
 	// Go to nearest light source
 	state_ = TO_TARGET;
 	ns_ = node->get_namespace();
 	// Create the topic to publish
-	stringstream cmdVelTopic, cmdRabTopic;
+	stringstream cmdVelTopic, cmdRabTopic, cmdLedTopic;
 	cmdVelTopic << ns_ << "/cmd_vel";
 	cmdRabTopic << ns_ << "/cmd_rab";
+	cmdLedTopic << ns_ << "/cmd_led";
 
 	cmdVelPublisher_ = node -> create_publisher<Twist>(cmdVelTopic.str(), 1);
 	cmdRabPublisher_ = node -> create_publisher<Packet>(cmdRabTopic.str(), 1);
+	cmdLedPublisher_ = node -> create_publisher<Led>(cmdLedTopic.str(), 1);
 	// Create the subscribers
 	stringstream lightListTopic, proxTopic, posTopic, rabTopic, blobTopic;
 	lightListTopic << ns_ << "/light";
@@ -85,6 +87,7 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 	for ( Packet currPacket : rxPacketList_.packets ){
 		std::cout << "At init - id: " << currPacket.data[1] << std::endl;
 	}
+
 }
 
 void Control::transition(robotState newState){
@@ -111,8 +114,12 @@ void Control::initTargets(){
 	int rand  = dist6(rng);
 	targetGPS_ = targets_[rand];
 	this -> commitment_.coords = targets_[rand];
-	this -> commitment_.id = -1;
+	cout << "ns in int form: " << std::string(ns_).substr (4) << endl;
+	this -> commitment_.id = std::stoi( std::string(ns_).substr (4) ) <= 10 ? 1 : 2;
 	this -> targetCommitment_ = 0;
+	Led color;
+	color.color= this -> commitment_.id == 1 ? "yellow" : "green";
+	this -> cmdLedPublisher_ -> publish(color);
 
 	this -> inhibitionType = inhibition_type::DIRECTSWITCH;
 }
@@ -261,8 +268,8 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 		  * Broadcast  opinion and update opinion state
 		  */
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
-			cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
-					<< " angle: " << Abs(cHeadingAngle) << std::endl;
+			/**cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
+					<< " angle: " << Abs(cHeadingAngle) << std::endl;*/
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
          break;
@@ -276,15 +283,15 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 		  * Broadcast  opinion and update opinion state
 		  */
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
-			cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
-					<< " angle: " << Abs(cHeadingAngle) << std::endl;
+			/**cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
+					<< " angle: " << Abs(cHeadingAngle) << std::endl;*/
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
          break;
       }
       case SWheelTurningParams::HARD_TURN: {
-    	  cout 	<< "HARD-TURN -> time: " << this -> time_
-    	  					<< " angle: " << Abs(cHeadingAngle) << std::endl;
+    	  /**cout 	<< "HARD-TURN -> time: " << this -> time_
+    	  					<< " angle: " << Abs(cHeadingAngle) << std::endl; */
          /* Opposite wheel speeds */
          fSpeed1 = -m_sWheelTurningParams.MaxSpeed;
          fSpeed2 =  m_sWheelTurningParams.MaxSpeed;
@@ -319,7 +326,7 @@ Packet Control::broadcast(){
 	/**packet.data.push_back(float( this -> commitment_.coords.x ));
 	packet.data.push_back(float( this -> commitment_.coords.y ));*/
 	packet.data.push_back(float( this -> commitment_.id ));
-	cout << "ns in int form: " << std::string(ns_).substr (4) << endl;;
+	cout << "ns in int form: " << std::string(ns_).substr (4) << endl;
 	packet.id = std::string(ns_).substr (4);
 
 	//std::cout << "sanity check, size of flat: " << CHAR_BIT * sizeof (float) << " Sending my coordinates: " << packet.data[0] << ", " << packet.data[1] << std::endl;
@@ -335,6 +342,10 @@ void Control::setCommitment( Target newCommitment) {
 
     this -> commitment_ = Target(newCommitment.coords, newCommitment.id);
     cout << "new commitment id: " << newCommitment.id << std::endl;
+    Led color;
+    color.color= this -> commitment_.id == 1 ? "yellow" : "green";
+    //cout << "Publishing new LED color: " << color.color << std::endl;
+    this -> cmdLedPublisher_ -> publish(color);
 }
 
 
@@ -437,7 +448,7 @@ void Control::rabCallback(const PacketList packets){
 		for ( Packet currPacket : packets.packets ){
 			if (currPacket.data[0] > 0){
 				if (msgBuffer.insert({int(currPacket.data[1]), int(currPacket.data[0])}).second){
-					cout << "Valid packet: " << currPacket.data[0] << endl;
+					//cout << "Valid packet: " << currPacket.data[0] << endl;
 					this -> rxPacketList_.packets.push_back(currPacket);
 					this -> rxPacketList_.n ++;
 				}
@@ -448,6 +459,9 @@ void Control::rabCallback(const PacketList packets){
 
 
 void Control::proxCallback(const ProximityList proxList){
+	if (time_ == 0)
+		initTargets();
+
 	this -> time_ ++;
 
 	/**
@@ -485,7 +499,7 @@ void Control::proxCallback(const ProximityList proxList){
 
 			if ( this -> commitment_.id == -1){
 				for ( Blob blob : blobList.blobs ){
-					if ( blob.distance < closestDist){
+					if ( blob.distance < closestDist && blob.color != "red"){
 						closestBlobIsNull = false;
 						closestBlob = blob;
 						closestDist = blob.distance;
@@ -493,6 +507,10 @@ void Control::proxCallback(const ProximityList proxList){
 				}
 				commitment_.id = closestBlob.color == "yellow" ? 1 : 2;
 				targetCommitment_ = closestBlob.color == "yellow" ? 1 : 2;
+				Led color;
+				color.color= this -> commitment_.id == 1 ? "yellow" : "green";
+				//cout << "Publishing new LED color: " << color.color << std::endl;
+				this -> cmdLedPublisher_ -> publish(color);
 
 			}
 			/**
@@ -576,17 +594,21 @@ void Control::proxCallback(const ProximityList proxList){
 
 	this -> cmdVelPublisher_ -> publish (twist);
 	this -> lastTwist_ = twist;
-	cout << "Time " << time_ << " Current commitment id: " << commitment_.id << endl;
+	//cout << "Time " << time_ << " Current commitment id: " << commitment_.id << endl;
 	/**
 	 * Update commitment
 	 */
-	if (msgBuffer.size() >=14){
+	if (msgBuffer.size() >= 3){
 		cout << "***************************************************************" << std::endl;
 		for(auto it = msgBuffer.cbegin(); it != msgBuffer.cend(); ++it)
 		{
 		    std::cout << "Robot ID: " << it->first << " sent commitment: " << it->second << "\n";
 		}
 		this -> updateCommitment();
+		cout << "***************************************************************" << std::endl;
+	}
+	else{
+		std::cout << "Time " << time_ <<": This robot has : " << msgBuffer.size() << " received unique packets"<< "\n";
 	}
 
 }

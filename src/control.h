@@ -25,6 +25,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "collective_decision_making/msg/led.hpp"
 #include "collective_decision_making/msg/light.hpp"
 #include "collective_decision_making/msg/light_list.hpp"
 #include "collective_decision_making/msg/blob.hpp"
@@ -166,6 +167,8 @@ private:
 	rclcpp::Publisher<Twist>::SharedPtr cmdVelPublisher_;
 	// We use a Packet because we cannot just publish a CByteArray (ROS does not support it)
 	rclcpp::Publisher<Packet>::SharedPtr cmdRabPublisher_;
+	// We use a Led interface to publish the desired LED color
+	rclcpp::Publisher<Led>::SharedPtr cmdLedPublisher_;
 
 	const char* ns_;
 
