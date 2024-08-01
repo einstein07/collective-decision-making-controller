@@ -84,10 +84,15 @@ public:
 
 	/* Enum for type of inhibition used in this experiment */
 	typedef enum {
+		PASSIVE = 0,
+		BUFFER,
+	} communicationType;
+
+	/** Enum for the communication type used in this experiment */
+	typedef enum {
 		CROSSINHIBITION = 0,
 		DIRECTSWITCH
-	} inhibition_type;
-
+	} inhibitionType;
 	/* Coordinate point */
 	struct Point{
 		float x;
@@ -174,7 +179,9 @@ private:
 
 	robotState state_;
 
-	inhibition_type inhibitionType;
+	inhibitionType inhibitionType_;
+	communicationType commsType_;
+
 
 	int time_;
 	int stateStartTime_;
