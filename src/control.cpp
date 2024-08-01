@@ -30,14 +30,21 @@ Control::Target::Target() : id(-1), coords(-1, -1){}
 Control::Control(std::shared_ptr<rclcpp::Node> node) :
 	time_(0),
 	stateStartTime_(0),
-	broadcastTime_(12),
-	commitmentUpdateTime_(26),
+	broadcastTime_(10),
+	commitmentUpdateTime_(25),
 	rxMessage_(false)
 	{
-	cout << "Passive - Comms" << std::endl;
+	commsType_ = communicationType::PASSIVE;
+	if ( commsType_ == communicationType::PASSIVE )
+		cout << "Passive - Comms" << std::endl;
+	else
+		cout << "Buffer - Comms" << std::endl;
 	m_sWheelTurningParams.Init();
 
 	this -> commitment_.id =-1;
+
+	this -> rxPacketList_.n = 0;
+
 	// Go to nearest light source
 	state_ = TO_TARGET;
 	ns_ = node->get_namespace();
@@ -122,7 +129,7 @@ void Control::initTargets(){
 	color.color= this -> commitment_.id == 1 ? "yellow" : "green";
 	this -> cmdLedPublisher_ -> publish(color);
 
-	this -> inhibitionType = inhibition_type::DIRECTSWITCH;
+	this -> inhibitionType_ = inhibitionType::DIRECTSWITCH;
 }
 
 Twist Control::twistTowardsThing(float angle, bool backwards=false){
@@ -293,7 +300,9 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
       case SWheelTurningParams::HARD_TURN: {
     	  /**cout 	<< "HARD-TURN -> time: " << this -> time_
     	  					<< " angle: " << Abs(cHeadingAngle) << std::endl; */
-    	  if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
+    	  /** We can broadcast while doing a hard turn but only when utilizing PASSIVE communication */
+    	  if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0
+    			  && this -> commitment_.id != -1 && this -> commsType_ == PASSIVE ){
 			/**cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
 					<< " angle: " << Abs(cHeadingAngle) << std::endl;*/
 			this -> cmdRabPublisher_ -> publish(broadcast(true));
@@ -336,7 +345,7 @@ Packet Control::broadcast(bool uncommitted){
 	//cout << "ns in int form: " << std::string(ns_).substr (4) << endl;
 	packet.id = std::string(ns_).substr (4);
 
-	//std::cout << "sanity check, size of flat: " << CHAR_BIT * sizeof (float) << " Sending my coordinates: " << packet.data[0] << ", " << packet.data[1] << std::endl;
+	//std::cout << " Time " << time_ << " Sending my commitment: " << packet.data[0] << ", My ID: " << packet.id << std::endl;
 	return packet;
 
 }
@@ -362,7 +371,7 @@ void Control::updateCommitment() {
 	std::uniform_int_distribution<std::mt19937::result_type> dist6(0, this -> rxPacketList_.n); // distribution in range [1, 100]
 	int rand = dist6(rng);
 
-	//std::cout << "Received a total of " << rxPacketList_.n << std::endl;
+	std::cout << "Time: " << time_ << " Received a total of " << rxPacketList_.n << std::endl;
 	/**
 	 * TODO: find a method that returns items at a specific index
 	 * instead of looping through the whole list
@@ -384,7 +393,7 @@ void Control::updateCommitment() {
 			}
 			this -> rxMessage_ = true;
 
-			//std::cout << "Picking number "<< rand << " id: " << this -> rxCommitment_.id << std::endl;
+			std::cout << "Time: " << time_ << " Picking number "<< rand << " id: " << this -> rxCommitment_.id << std::endl;
 		}
 		index++;
 	}
@@ -397,7 +406,7 @@ void Control::updateCommitment() {
 	this -> rxPacketList_.n = 0;
 	//cout << "Cleaning list... List size: " << this -> rxPacketList_.n << std::endl;
 	for ( Packet currPacket : rxPacketList_.packets ){
-		std::cout << "id: " << this -> rxCommitment_.id << std::endl;
+		std::cout << "Commitment ID not deleted: " << this -> rxCommitment_.id << std::endl;
 	}
 	msgBuffer.clear();
 
@@ -420,17 +429,34 @@ void Control::blobCallback(const BlobList blobList){
 
 
 void Control::rabCallback(const PacketList packets){
-
-
+	/* This check is important to ensure that we do not pick up
+	 * empty RAB sensor values - consider delay between ros2 and argos
+	 */
+	if ( time_ > this->broadcastTime_ +4 ){
 		for ( Packet currPacket : packets.packets ){
-			//if (currPacket.data[0] > 0){
-				//if (msgBuffer.insert({int(currPacket.data[1]), int(currPacket.data[0])}).second){
-					//cout << "Valid packet: " << currPacket.data[0] << endl;
-					this -> rxPacketList_.packets.push_back(currPacket);
-					this -> rxPacketList_.n ++;
-				//}
-			//}
-		}
+			//	if ( this -> commsType_ == BUFFER ){
+			/**
+			 * If it is a new agent, insert new record
+			 */
+			if (msgBuffer.insert({int(currPacket.data[1]), int(currPacket.data[0])}).second){
+				//cout << "Time: " << time_ << " Received New Robot-ID: " << currPacket.data[1] << " Light-ID: " << currPacket.data[0] << endl;
+				this -> rxPacketList_.packets.push_back(currPacket);
+				this -> rxPacketList_.n ++;
+			}
+			/**
+			 * If it is an existing record, update the agent commitment.
+			 */
+			else{
+				msgBuffer[int(currPacket.data[1])] = int(currPacket.data[0]);
+			}
+	}
+	}
+
+		//	else{
+		//		this -> rxPacketList_.packets.push_back(currPacket);
+		//		this -> rxPacketList_.n ++;
+		//	}
+		//}
 
 }
 
@@ -577,22 +603,29 @@ void Control::proxCallback(const ProximityList proxList){
 	/**
 	 * Update commitment
 	 */
-	/**if (msgBuffer.size() >= 3){
-		//cout << "***************************************************************" << std::endl;
-		for(auto it = msgBuffer.cbegin(); it != msgBuffer.cend(); ++it)
-		{
-		//    std::cout << "Robot ID: " << it->first << " sent commitment: " << it->second << "\n";
+	if ( this -> commsType_ == PASSIVE){
+		if ( this -> time_ > 0 && this -> time_ % this -> commitmentUpdateTime_ == 0 ) {
+			cout << "Time " << time_ << " Updating commitment..." << endl;
+			updateCommitment();
 		}
-		this -> updateCommitment();
-		//cout << "***************************************************************" << std::endl;
 	}
-	else{
-		//std::cout << "Time " << time_ <<": This robot has : " << msgBuffer.size() << " received unique packets"<< "\n";
-	}*/
-	if ( this -> time_ > 0 && this -> time_ % this -> commitmentUpdateTime_ == 0 ) {
-		updateCommitment();
-		cout << "Time " << time_ << " Updating commitment..." << endl;
+	else {
+		if (msgBuffer.size() >= 3){
+			//cout << "***************************************************************" << std::endl;
+			for(auto it = msgBuffer.cbegin(); it != msgBuffer.cend(); ++it)
+			{
+			//    std::cout << "Robot ID: " << it->first << " sent commitment: " << it->second << "\n";
+			}
+			cout << "Time " << time_ << " Updating commitment..." << endl;
+			this -> updateCommitment();
+			//cout << "***************************************************************" << std::endl;
+		}
+		else{
+			//std::cout << "Time " << time_ <<": This robot has : " << msgBuffer.size() << " received unique packets"<< "\n";
+		}
 	}
+
+
 
 }
 
