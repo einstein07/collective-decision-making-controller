@@ -141,7 +141,7 @@ public:
 
    void initTargets();
 
-   Packet broadcast();
+   Packet broadcast(bool uncommitted = false);
 
    void setCommitment( Target newCommitment );
 
