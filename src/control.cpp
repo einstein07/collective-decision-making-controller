@@ -34,9 +34,10 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 	commitmentUpdateTime_(26),
 	rxMessage_(false)
 	{
+	cout << "Passive - Comms" << std::endl;
 	m_sWheelTurningParams.Init();
 
-
+	this -> commitment_.id =-1;
 	// Go to nearest light source
 	state_ = TO_TARGET;
 	ns_ = node->get_namespace();
@@ -114,7 +115,7 @@ void Control::initTargets(){
 	int rand  = dist6(rng);
 	targetGPS_ = targets_[rand];
 	this -> commitment_.coords = targets_[rand];
-	cout << "ns in int form: " << std::string(ns_).substr (4) << endl;
+	//cout << "ns in int form: " << std::string(ns_).substr (4) << endl;
 	this -> commitment_.id = std::stoi( std::string(ns_).substr (4) ) <= 10 ? 1 : 2;
 	this -> targetCommitment_ = 0;
 	Led color;
@@ -292,6 +293,11 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
       case SWheelTurningParams::HARD_TURN: {
     	  /**cout 	<< "HARD-TURN -> time: " << this -> time_
     	  					<< " angle: " << Abs(cHeadingAngle) << std::endl; */
+    	  if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
+			/**cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
+					<< " angle: " << Abs(cHeadingAngle) << std::endl;*/
+			this -> cmdRabPublisher_ -> publish(broadcast(true));
+    	  }
          /* Opposite wheel speeds */
          fSpeed1 = -m_sWheelTurningParams.MaxSpeed;
          fSpeed2 =  m_sWheelTurningParams.MaxSpeed;
@@ -317,7 +323,7 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
    return twist;
 }
 
-Packet Control::broadcast(){
+Packet Control::broadcast(bool uncommitted){
 
 	Packet packet;
 	//packet.data.push_back(float(targetGPS_.x));
@@ -325,8 +331,9 @@ Packet Control::broadcast(){
 
 	/**packet.data.push_back(float( this -> commitment_.coords.x ));
 	packet.data.push_back(float( this -> commitment_.coords.y ));*/
-	packet.data.push_back(float( this -> commitment_.id ));
-	cout << "ns in int form: " << std::string(ns_).substr (4) << endl;
+	float targetToBroadcast = uncommitted? 0.0f : float( this -> commitment_.id );
+	packet.data.push_back(targetToBroadcast);
+	//cout << "ns in int form: " << std::string(ns_).substr (4) << endl;
 	packet.id = std::string(ns_).substr (4);
 
 	//std::cout << "sanity check, size of flat: " << CHAR_BIT * sizeof (float) << " Sending my coordinates: " << packet.data[0] << ", " << packet.data[1] << std::endl;
@@ -351,79 +358,49 @@ void Control::setCommitment( Target newCommitment) {
 
 void Control::updateCommitment() {
 
+	std::mt19937 rng(this -> dev());
+	std::uniform_int_distribution<std::mt19937::result_type> dist6(0, this -> rxPacketList_.n); // distribution in range [1, 100]
+	int rand = dist6(rng);
 
-	/* Updating the commitment only each update_ticks */
-	//if ( this -> time_ > 0 && this -> time_ % this -> commitmentUpdateTime_ == 0 ) {
+	//std::cout << "Received a total of " << rxPacketList_.n << std::endl;
+	/**
+	 * TODO: find a method that returns items at a specific index
+	 * instead of looping through the whole list
+	 */
+	size_t index = 0;
+	for ( Packet currPacket : rxPacketList_.packets ){
 
-		std::mt19937 rng(this -> dev());
-		std::uniform_int_distribution<std::mt19937::result_type> dist6(0, this -> rxPacketList_.n); // distribution in range [1, 100]
-		int rand = dist6(rng);
+		if ( index == rand ){
 
-		std::cout << "Received a total of " << rxPacketList_.n << std::endl;
-		/**
-		 * TODO: find a method that returns items at a specific index
-		 * instead of looping through the whole list
-		 */
-		size_t index = 0;
-		for ( Packet currPacket : rxPacketList_.packets ){
-
-			if ( index == rand ){
-				/**this -> rxTargetGPS_.x = currPacket.data[0];
-				this -> rxTargetGPS_.y = currPacket.data[1];*/
-				this -> rxCommitment_ = Target(
-						float(0),
-						float(0),
-						int(currPacket.data[0]));
-				if ( rxCommitment_.id != -1 ){
-					rxMsgType_ = RECRUITMENT_MSG;
-				}
-				else {
-					rxMsgType_ = UNCOMMITTED_MSG;
-				}
-				this -> rxMessage_ = true;
-
-				std::cout << "Picking number "<< rand << " id: " << this -> rxCommitment_.id << std::endl;
+			this -> rxCommitment_ = Target(
+					float(0),
+					float(0),
+					int(currPacket.data[0]));
+			if ( rxCommitment_.id != 0 ){
+				rxMsgType_ = RECRUITMENT_MSG;
 			}
-			index++;
-		}
-		//std::cout << " time: "<< this -> time_ << " received msgs: " << rxMessage_ <<  std::endl;
-		/* if the agent is uncommitted, it can do discovery or recruitment */
-		if ( this -> commitment_.id == -1 ){
-
-			/* RECRUITMENT*/
-			if (rxMessage_ && (rxMsgType_ == RECRUITMENT_MSG) && ( this -> rxCommitment_.id != -1 )){
-				/* the agent gets recruited a new option*/
-
-				setCommitment(rxCommitment_);
-
+			else {
+				rxMsgType_ = UNCOMMITTED_MSG;
 			}
+			this -> rxMessage_ = true;
+
+			//std::cout << "Picking number "<< rand << " id: " << this -> rxCommitment_.id << std::endl;
 		}
-		/* if the agent is committed */
-		else {
-			/* I receive a message from another agent */
-			/* the other agent must be: (i) committed and (ii) with option different than mine  */
-			if ( rxMessage_ && this -> commitment_.id != this -> rxCommitment_.id ) {
-				/* INHIBITION */
-				//if ( inhibitionType == CROSSINHIBITION ){
-				//	setCommitment(Target(0, 0, -1));
-				//}
-				/* DIRECT SWITCH */
-				//else if (inhibitionType == DIRECTSWITCH ) {
-				//	setCommitment(rxCommitment_);
-				//}
-				setCommitment(rxCommitment_);
-			}
+		index++;
+	}
+		if ( rxMessage_ && this -> commitment_.id != this -> rxCommitment_.id  && rxMsgType_ == RECRUITMENT_MSG) {
+			setCommitment(rxCommitment_);
 		}
 
-		rxMessage_ = false;
-		this -> rxPacketList_.packets.clear();
-		this -> rxPacketList_.n = 0;
-		cout << "Cleaning list... List size: " << this -> rxPacketList_.n << std::endl;
-		for ( Packet currPacket : rxPacketList_.packets ){
-			std::cout << "id: " << this -> rxCommitment_.id << std::endl;
-		}
-		msgBuffer.clear();
-	//}
+	rxMessage_ = false;
+	this -> rxPacketList_.packets.clear();
+	this -> rxPacketList_.n = 0;
+	//cout << "Cleaning list... List size: " << this -> rxPacketList_.n << std::endl;
+	for ( Packet currPacket : rxPacketList_.packets ){
+		std::cout << "id: " << this -> rxCommitment_.id << std::endl;
+	}
+	msgBuffer.clear();
+
 }
 
 
@@ -446,21 +423,23 @@ void Control::rabCallback(const PacketList packets){
 
 
 		for ( Packet currPacket : packets.packets ){
-			if (currPacket.data[0] > 0){
-				if (msgBuffer.insert({int(currPacket.data[1]), int(currPacket.data[0])}).second){
+			//if (currPacket.data[0] > 0){
+				//if (msgBuffer.insert({int(currPacket.data[1]), int(currPacket.data[0])}).second){
 					//cout << "Valid packet: " << currPacket.data[0] << endl;
 					this -> rxPacketList_.packets.push_back(currPacket);
 					this -> rxPacketList_.n ++;
-				}
-			}
+				//}
+			//}
 		}
 
 }
 
 
 void Control::proxCallback(const ProximityList proxList){
-	if (time_ == 0)
+	if (time_ == 0 || this -> commitment_.id == -1){
 		initTargets();
+		cout << "Initializing targets" << std::endl;
+	}
 
 	this -> time_ ++;
 
@@ -598,17 +577,21 @@ void Control::proxCallback(const ProximityList proxList){
 	/**
 	 * Update commitment
 	 */
-	if (msgBuffer.size() >= 3){
-		cout << "***************************************************************" << std::endl;
+	/**if (msgBuffer.size() >= 3){
+		//cout << "***************************************************************" << std::endl;
 		for(auto it = msgBuffer.cbegin(); it != msgBuffer.cend(); ++it)
 		{
-		    std::cout << "Robot ID: " << it->first << " sent commitment: " << it->second << "\n";
+		//    std::cout << "Robot ID: " << it->first << " sent commitment: " << it->second << "\n";
 		}
 		this -> updateCommitment();
-		cout << "***************************************************************" << std::endl;
+		//cout << "***************************************************************" << std::endl;
 	}
 	else{
-		std::cout << "Time " << time_ <<": This robot has : " << msgBuffer.size() << " received unique packets"<< "\n";
+		//std::cout << "Time " << time_ <<": This robot has : " << msgBuffer.size() << " received unique packets"<< "\n";
+	}*/
+	if ( this -> time_ > 0 && this -> time_ % this -> commitmentUpdateTime_ == 0 ) {
+		updateCommitment();
+		cout << "Time " << time_ << " Updating commitment..." << endl;
 	}
 
 }
