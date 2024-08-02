@@ -152,6 +152,9 @@ public:
 
    void updateCommitment();
 
+   void setCommitmentPerception();
+
+
 private:
 	/**************************************
 	 * Create topic subscribers

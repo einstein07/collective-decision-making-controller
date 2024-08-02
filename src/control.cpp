@@ -41,7 +41,7 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 		cout << "Buffer - Comms" << std::endl;
 	m_sWheelTurningParams.Init();
 
-	this -> commitment_.id =-1;
+	this -> commitment_.id = -1;
 
 	this -> rxPacketList_.n = 0;
 
@@ -367,6 +367,8 @@ void Control::setCommitment( Target newCommitment) {
 
 void Control::updateCommitment() {
 
+	float dice = float(randint()%100) / 100.0;
+
 	std::mt19937 rng(this -> dev());
 	std::uniform_int_distribution<std::mt19937::result_type> dist6(0, this -> rxPacketList_.n); // distribution in range [1, 100]
 	int rand = dist6(rng);
@@ -409,6 +411,30 @@ void Control::updateCommitment() {
 		std::cout << "Commitment ID not deleted: " << this -> rxCommitment_.id << std::endl;
 	}
 	msgBuffer.clear();
+
+}
+
+void Control::setCommitmentPerception(){
+	int blobsInSightCount = 0;
+	for ( Blob blob : blobList.blobs ){
+		if ( blob.color == "yellow" || blob.color == "green" ){
+			blobsInSightCount++;
+		}
+	}
+	if (blobsInSightCount > 0){
+		std::mt19937 rng(this -> dev());
+		std::uniform_int_distribution<std::mt19937::result_type> dist6(0, blobsInSightCount); // distribution in range [1, 100]
+		int rand = dist6(rng) - 1;
+
+		this -> commitment_ = Target(0, 0, rand);
+		cout << "new commitment id: " << commitment_.id << std::endl;
+		Led color;
+		color.color= this -> commitment_.id == 1 ? "yellow" : "green";
+		//cout << "Publishing new LED color: " << color.color << std::endl;
+		this -> cmdLedPublisher_ -> publish(color);
+
+	}
+
 
 }
 
@@ -499,9 +525,11 @@ void Control::proxCallback(const ProximityList proxList){
 
 	Blob closestBlob;
 	bool closestBlobIsNull = true;
-	float closestDist = std::numeric_limits<float>::infinity();;
+	float closestDist = std::numeric_limits<float>::infinity();
 	if ( this -> blobList.n > 0 ){ // just in case the light is not picked up
-
+			/**
+			 * Not committed to a light source yet
+			 */
 			if ( this -> commitment_.id == -1){
 				for ( Blob blob : blobList.blobs ){
 					if ( blob.distance < closestDist && blob.color != "red"){
