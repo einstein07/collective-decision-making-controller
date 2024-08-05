@@ -2,7 +2,8 @@
  * control.h
  *
  *  Created on: 16 Jul 2024
- *      Author: rooot
+ *  Author: Sindiso Mkhatshwa
+ * 	Email: sindiso.mkhatshwa@uni-konstanz.de
  */
 
 #ifndef CONTROL_H_
@@ -16,13 +17,14 @@
 #include <random>
 #include <climits>
 
+
 /* Vector2 definitions */
 #include <argos3/core/utility/math/vector2.h>
 #include <argos3/core/utility/math/vector3.h>
 #include <argos3/core/utility/math/quaternion.h>
 #include <argos3/core/utility/datatypes/byte_array.h>
 
-
+#include "util.h"
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "collective_decision_making/msg/led.hpp"
@@ -148,11 +150,11 @@ public:
 
    Packet broadcast(bool uncommitted = false);
 
-   void setCommitment( Target newCommitment );
-
-   void updateCommitment();
+   void setCommitmentOpinions();
 
    void setCommitmentPerception();
+
+   void updateCommitment();
 
 
 private:
@@ -234,7 +236,10 @@ private:
 	const uint32_t commitmentUpdateTime_;
 
 	// Robot id - commitment
-	std::map<int, int> msgBuffer;
+	std::map<int, int> msgBuffer_;
+
+	// Probability to update commitment using perception
+	float pPerceiveLightSources_;
 
 };
 

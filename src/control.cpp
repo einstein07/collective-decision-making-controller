@@ -130,6 +130,9 @@ void Control::initTargets(){
 	this -> cmdLedPublisher_ -> publish(color);
 
 	this -> inhibitionType_ = inhibitionType::DIRECTSWITCH;
+
+	this -> pPerceiveLightSources_ = 0.1f;
+
 }
 
 Twist Control::twistTowardsThing(float angle, bool backwards=false){
@@ -350,24 +353,7 @@ Packet Control::broadcast(bool uncommitted){
 
 }
 
-void Control::setCommitment( Target newCommitment) {
-
-    /* update the commitment state varieable */
-    this -> targetGPS_.x = newCommitment.coords.x;
-    this -> targetGPS_.y = newCommitment.coords.y;
-
-    this -> commitment_ = Target(newCommitment.coords, newCommitment.id);
-    cout << "new commitment id: " << newCommitment.id << std::endl;
-    Led color;
-    color.color= this -> commitment_.id == 1 ? "yellow" : "green";
-    //cout << "Publishing new LED color: " << color.color << std::endl;
-    this -> cmdLedPublisher_ -> publish(color);
-}
-
-
-void Control::updateCommitment() {
-
-	float dice = float(randint()%100) / 100.0;
+void Control::setCommitmentOpinions() {
 
 	std::mt19937 rng(this -> dev());
 	std::uniform_int_distribution<std::mt19937::result_type> dist6(0, this -> rxPacketList_.n); // distribution in range [1, 100]
@@ -399,20 +385,17 @@ void Control::updateCommitment() {
 		}
 		index++;
 	}
-		if ( rxMessage_ && this -> commitment_.id != this -> rxCommitment_.id  && rxMsgType_ == RECRUITMENT_MSG) {
-			setCommitment(rxCommitment_);
+		if ( rxMessage_ && this -> commitment_.id != this -> rxCommitment_.id  && rxMsgType_ == RECRUITMENT_MSG) {			
+			this -> commitment_ = Target(rxCommitment_.coords, rxCommitment_.id);
+			cout << "new commitment id: " << rxCommitment_.id << std::endl;
+			Led color;
+			color.color= this -> commitment_.id == 1 ? "yellow" : "green";
+			//cout << "Publishing new LED color: " << color.color << std::endl;
+			this -> cmdLedPublisher_ -> publish(color);
 		}
 
-	rxMessage_ = false;
-	this -> rxPacketList_.packets.clear();
-	this -> rxPacketList_.n = 0;
-	//cout << "Cleaning list... List size: " << this -> rxPacketList_.n << std::endl;
-	for ( Packet currPacket : rxPacketList_.packets ){
-		std::cout << "Commitment ID not deleted: " << this -> rxCommitment_.id << std::endl;
-	}
-	msgBuffer.clear();
-
 }
+
 
 void Control::setCommitmentPerception(){
 	int blobsInSightCount = 0;
@@ -423,11 +406,11 @@ void Control::setCommitmentPerception(){
 	}
 	if (blobsInSightCount > 0){
 		std::mt19937 rng(this -> dev());
-		std::uniform_int_distribution<std::mt19937::result_type> dist6(0, blobsInSightCount); // distribution in range [1, 100]
-		int rand = dist6(rng) - 1;
+		std::uniform_int_distribution<std::mt19937::result_type> dist6(1, blobsInSightCount); // distribution in range [1, 100]
+		int rand = dist6(rng);
 
 		this -> commitment_ = Target(0, 0, rand);
-		cout << "new commitment id: " << commitment_.id << std::endl;
+		cout << "Perception new commitment id: " << commitment_.id << std::endl;
 		Led color;
 		color.color= this -> commitment_.id == 1 ? "yellow" : "green";
 		//cout << "Publishing new LED color: " << color.color << std::endl;
@@ -435,6 +418,27 @@ void Control::setCommitmentPerception(){
 
 	}
 
+
+}
+
+void Control::updateCommitment() {
+
+	float dice = float(randint()%100) / 100.0;
+	if ( dice <= pPerceiveLightSources_ ){
+		setCommitmentPerception();
+	}
+	else{
+		setCommitmentOpinions();
+	}
+
+	rxMessage_ = false;
+	this -> rxPacketList_.packets.clear();
+	this -> rxPacketList_.n = 0;
+	//cout << "Cleaning list... List size: " << this -> rxPacketList_.n << std::endl;
+	for ( Packet currPacket : rxPacketList_.packets ){
+		std::cout << "Commitment ID not deleted: " << this -> rxCommitment_.id << std::endl;
+	}
+	msgBuffer_.clear();
 
 }
 
@@ -464,7 +468,7 @@ void Control::rabCallback(const PacketList packets){
 			/**
 			 * If it is a new agent, insert new record
 			 */
-			if (msgBuffer.insert({int(currPacket.data[1]), int(currPacket.data[0])}).second){
+			if (msgBuffer_.insert({int(currPacket.data[1]), int(currPacket.data[0])}).second){
 				//cout << "Time: " << time_ << " Received New Robot-ID: " << currPacket.data[1] << " Light-ID: " << currPacket.data[0] << endl;
 				this -> rxPacketList_.packets.push_back(currPacket);
 				this -> rxPacketList_.n ++;
@@ -473,7 +477,7 @@ void Control::rabCallback(const PacketList packets){
 			 * If it is an existing record, update the agent commitment.
 			 */
 			else{
-				msgBuffer[int(currPacket.data[1])] = int(currPacket.data[0]);
+				msgBuffer_[int(currPacket.data[1])] = int(currPacket.data[0]);
 			}
 	}
 	}
@@ -638,9 +642,9 @@ void Control::proxCallback(const ProximityList proxList){
 		}
 	}
 	else {
-		if (msgBuffer.size() >= 3){
+		if (msgBuffer_.size() >= 3){
 			//cout << "***************************************************************" << std::endl;
-			for(auto it = msgBuffer.cbegin(); it != msgBuffer.cend(); ++it)
+			for(auto it = msgBuffer_.cbegin(); it != msgBuffer_.cend(); ++it)
 			{
 			//    std::cout << "Robot ID: " << it->first << " sent commitment: " << it->second << "\n";
 			}
@@ -649,7 +653,7 @@ void Control::proxCallback(const ProximityList proxList){
 			//cout << "***************************************************************" << std::endl;
 		}
 		else{
-			//std::cout << "Time " << time_ <<": This robot has : " << msgBuffer.size() << " received unique packets"<< "\n";
+			//std::cout << "Time " << time_ <<": This robot has : " << msgBuffer_.size() << " received unique packets"<< "\n";
 		}
 	}
 
