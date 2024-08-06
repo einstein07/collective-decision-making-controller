@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(controller)
+project(perception_commitment)
 
 # Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
@@ -44,7 +44,7 @@ find_package(Lua REQUIRED)
 # Set ARGoS include dir
 ament_export_include_directories(${CMAKE_SOURCE_DIR} ${ARGOS_INCLUDE_DIRS} ${GSL_INCLUDE_DIR} ${LUA_INCLUDE_DIR})
 
-add_executable(controller src/control.cpp src/control.h)
+add_executable(controller src/control.cpp src/control.h src/util.cpp src/util.h)
 ament_target_dependencies(controller rclcpp std_msgs geometry_msgs collective_decision_making ARGoS)
 
 target_link_libraries(controller

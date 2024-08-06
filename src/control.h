@@ -2,7 +2,8 @@
  * control.h
  *
  *  Created on: 16 Jul 2024
- *      Author: rooot
+ *  Author: Sindiso Mkhatshwa
+ * 	Email: sindiso.mkhatshwa@uni-konstanz.de
  */
 
 #ifndef CONTROL_H_
@@ -16,14 +17,16 @@
 #include <random>
 #include <climits>
 
+
 /* Vector2 definitions */
 #include <argos3/core/utility/math/vector2.h>
 #include <argos3/core/utility/math/vector3.h>
 #include <argos3/core/utility/math/quaternion.h>
 #include <argos3/core/utility/datatypes/byte_array.h>
 
-
+#include "util.h"
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp/parameter.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "collective_decision_making/msg/led.hpp"
 #include "collective_decision_making/msg/light.hpp"
@@ -64,7 +67,7 @@ public:
 	  CRadians SoftTurnOnAngleThreshold;
 	  CRadians NoTurnAngleThreshold;
 	  /* Maximum wheel speed */
-	  Real MaxSpeed;
+	  float MaxSpeed;
 
 	  void Init(/**TConfigurationNode& t_tree*/);
    };
@@ -148,9 +151,16 @@ public:
 
    Packet broadcast(bool uncommitted = false);
 
-   void setCommitment( Target newCommitment );
+   void setCommitmentOpinions();
+
+   void setCommitmentPerception();
 
    void updateCommitment();
+
+   void initializeParameters();
+
+   void configure();
+
 
 private:
 	/**************************************
@@ -174,6 +184,8 @@ private:
 	rclcpp::Publisher<Packet>::SharedPtr cmdRabPublisher_;
 	// We use a Led interface to publish the desired LED color
 	rclcpp::Publisher<Led>::SharedPtr cmdLedPublisher_;
+
+	std::shared_ptr<rclcpp::Node> node_;
 
 	const char* ns_;
 
@@ -226,12 +238,15 @@ private:
 	/* The two target locations */
 	std::string lightSources_[2];
 
-	const uint32_t broadcastTime_;
+	uint32_t broadcastTime_;
 
-	const uint32_t commitmentUpdateTime_;
+	uint32_t commitmentUpdateTime_;
 
 	// Robot id - commitment
-	std::map<int, int> msgBuffer;
+	std::map<int, int> msgBuffer_;
+
+	// Probability to update commitment using perception
+	float pPerceiveLightSources_;
 
 };
 

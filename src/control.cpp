@@ -34,6 +34,11 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 	commitmentUpdateTime_(25),
 	rxMessage_(false)
 	{
+	this -> node_ = node;
+	// Declare parameters.
+    //this->initializeParameters();
+
+    //this->configure();
 	commsType_ = communicationType::PASSIVE;
 	if ( commsType_ == communicationType::PASSIVE )
 		cout << "Passive - Comms" << std::endl;
@@ -41,22 +46,24 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 		cout << "Buffer - Comms" << std::endl;
 	m_sWheelTurningParams.Init();
 
-	this -> commitment_.id =-1;
+	this -> inhibitionType_ = inhibitionType::DIRECTSWITCH;
+
+	this -> commitment_.id = -1;
 
 	this -> rxPacketList_.n = 0;
 
 	// Go to nearest light source
 	state_ = TO_TARGET;
-	ns_ = node->get_namespace();
+	ns_ = node_->get_namespace();
 	// Create the topic to publish
 	stringstream cmdVelTopic, cmdRabTopic, cmdLedTopic;
 	cmdVelTopic << ns_ << "/cmd_vel";
 	cmdRabTopic << ns_ << "/cmd_rab";
 	cmdLedTopic << ns_ << "/cmd_led";
 
-	cmdVelPublisher_ = node -> create_publisher<Twist>(cmdVelTopic.str(), 1);
-	cmdRabPublisher_ = node -> create_publisher<Packet>(cmdRabTopic.str(), 1);
-	cmdLedPublisher_ = node -> create_publisher<Led>(cmdLedTopic.str(), 1);
+	cmdVelPublisher_ = node_ -> create_publisher<Twist>(cmdVelTopic.str(), 1);
+	cmdRabPublisher_ = node_ -> create_publisher<Packet>(cmdRabTopic.str(), 1);
+	cmdLedPublisher_ = node_ -> create_publisher<Led>(cmdLedTopic.str(), 1);
 	// Create the subscribers
 	stringstream lightListTopic, proxTopic, posTopic, rabTopic, blobTopic;
 	lightListTopic << ns_ << "/light";
@@ -65,28 +72,28 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 	rabTopic << ns_ << "/rab";
 	blobTopic << ns_ << "/blob";
 
-	lightListSubscriber_ = node -> create_subscription<collective_decision_making::msg::LightList>(
+	lightListSubscriber_ = node_ -> create_subscription<collective_decision_making::msg::LightList>(
 				lightListTopic.str(),
 				1,
 				std::bind(&Control::lightCallback, this, _1)
 				);
 
-	proxSubscriber_	= node -> create_subscription<collective_decision_making::msg::ProximityList>(
+	proxSubscriber_	= node_ -> create_subscription<collective_decision_making::msg::ProximityList>(
 			proxTopic.str(),
 			1,
 			std::bind(&Control::proxCallback, this, _1)
 			);
-	posSubscriber_ 	= node -> create_subscription<collective_decision_making::msg::Position>(
+	posSubscriber_ 	= node_ -> create_subscription<collective_decision_making::msg::Position>(
 			posTopic.str(),
 			1,
 			std::bind(&Control::posCallback, this, _1)
 			);
-	rabSubscriber_ 	= node -> create_subscription<PacketList>(
+	rabSubscriber_ 	= node_ -> create_subscription<PacketList>(
 			rabTopic.str(),
 			1,
 			std::bind(&Control::rabCallback, this, _1)
 			);
-	blobSubscriber_	= node -> create_subscription<BlobList>(
+	blobSubscriber_	= node_ -> create_subscription<BlobList>(
 			blobTopic.str(),
 			1,
 			std::bind(&Control::blobCallback, this, _1)
@@ -113,23 +120,26 @@ Twist Control::twistRandom(){
 }
 
 void Control::initTargets(){
-	targets_[0] = Point(2, 18);
-	targets_[1] = Point(-2, 18);
+	//targets_[0] = Point(2, 18);
+	//targets_[1] = Point(-2, 18);
 	lightSources_[0] = "yellow";
 	lightSources_[1] = "green";
 	std::mt19937 rng(this -> dev());
 	std::uniform_int_distribution<std::mt19937::result_type> dist6(0,1); // distribution in range [1, 100]
 	int rand  = dist6(rng);
-	targetGPS_ = targets_[rand];
-	this -> commitment_.coords = targets_[rand];
+	//targetGPS_ = targets_[rand];
+	this -> commitment_.coords = Point();
 	//cout << "ns in int form: " << std::string(ns_).substr (4) << endl;
 	this -> commitment_.id = std::stoi( std::string(ns_).substr (4) ) <= 10 ? 1 : 2;
 	this -> targetCommitment_ = 0;
+	
 	Led color;
 	color.color= this -> commitment_.id == 1 ? "yellow" : "green";
 	this -> cmdLedPublisher_ -> publish(color);
 
 	this -> inhibitionType_ = inhibitionType::DIRECTSWITCH;
+
+	this -> pPerceiveLightSources_ = 0.1f;
 }
 
 Twist Control::twistTowardsThing(float angle, bool backwards=false){
@@ -350,22 +360,7 @@ Packet Control::broadcast(bool uncommitted){
 
 }
 
-void Control::setCommitment( Target newCommitment) {
-
-    /* update the commitment state varieable */
-    this -> targetGPS_.x = newCommitment.coords.x;
-    this -> targetGPS_.y = newCommitment.coords.y;
-
-    this -> commitment_ = Target(newCommitment.coords, newCommitment.id);
-    cout << "new commitment id: " << newCommitment.id << std::endl;
-    Led color;
-    color.color= this -> commitment_.id == 1 ? "yellow" : "green";
-    //cout << "Publishing new LED color: " << color.color << std::endl;
-    this -> cmdLedPublisher_ -> publish(color);
-}
-
-
-void Control::updateCommitment() {
+void Control::setCommitmentOpinions() {
 
 	std::mt19937 rng(this -> dev());
 	std::uniform_int_distribution<std::mt19937::result_type> dist6(0, this -> rxPacketList_.n); // distribution in range [1, 100]
@@ -397,9 +392,50 @@ void Control::updateCommitment() {
 		}
 		index++;
 	}
-		if ( rxMessage_ && this -> commitment_.id != this -> rxCommitment_.id  && rxMsgType_ == RECRUITMENT_MSG) {
-			setCommitment(rxCommitment_);
+		if ( rxMessage_ && this -> commitment_.id != this -> rxCommitment_.id  && rxMsgType_ == RECRUITMENT_MSG) {			
+			this -> commitment_ = Target(rxCommitment_.coords, rxCommitment_.id);
+			cout << "new commitment id: " << rxCommitment_.id << std::endl;
+			Led color;
+			color.color= this -> commitment_.id == 1 ? "yellow" : "green";
+			//cout << "Publishing new LED color: " << color.color << std::endl;
+			this -> cmdLedPublisher_ -> publish(color);
 		}
+
+}
+
+void Control::setCommitmentPerception(){
+	int blobsInSightCount = 0;
+	for ( Blob blob : blobList.blobs ){
+		if ( blob.color == "yellow" || blob.color == "green" ){
+			blobsInSightCount++;
+		}
+	}
+	if (blobsInSightCount > 0){
+		std::mt19937 rng(this -> dev());
+		std::uniform_int_distribution<std::mt19937::result_type> dist6(1, blobsInSightCount); // distribution in range [1, 100]
+		int rand = dist6(rng);
+
+		this -> commitment_ = Target(0, 0, rand);
+		cout << "Perception new commitment id: " << commitment_.id << std::endl;
+		Led color;
+		color.color= this -> commitment_.id == 1 ? "yellow" : "green";
+		//cout << "Publishing new LED color: " << color.color << std::endl;
+		this -> cmdLedPublisher_ -> publish(color);
+
+	}
+
+
+}
+
+void Control::updateCommitment() {
+
+	float dice = float(randint()%100) / 100.0;
+	if ( dice <= pPerceiveLightSources_ ){
+		setCommitmentPerception();
+	}
+	else{
+		setCommitmentOpinions();
+	}
 
 	rxMessage_ = false;
 	this -> rxPacketList_.packets.clear();
@@ -408,26 +444,160 @@ void Control::updateCommitment() {
 	for ( Packet currPacket : rxPacketList_.packets ){
 		std::cout << "Commitment ID not deleted: " << this -> rxCommitment_.id << std::endl;
 	}
-	msgBuffer.clear();
+	msgBuffer_.clear();
 
 }
 
+void Control::initializeParameters(){
+	/**
+	 * This parameter sets the duration of a broadcast
+	 * Default: 10 ticks
+	 */
+	rcl_interfaces::msg::ParameterDescriptor broadcastTimeDescriptor;
+    broadcastTimeDescriptor.name = "broadcastTime";
+    broadcastTimeDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER;
+    broadcastTimeDescriptor.description = "Number of ticks before an agent can broadcast an opinion.";
+    this -> node_ -> declare_parameter("broadcastTime", 10, broadcastTimeDescriptor);
 
+	/**
+	 * This parameter sets the duration of an agent's commitment to a target
+	 * Default: 25 ticks
+	 */
+	rcl_interfaces::msg::ParameterDescriptor commitmentUpdateTimeDescriptor;
+    commitmentUpdateTimeDescriptor.name = "commitmentUpdateTime";
+    commitmentUpdateTimeDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER;
+    commitmentUpdateTimeDescriptor.description = "Number of ticks before an agent can update its commitment.";
+    this -> node_ -> declare_parameter("commitmentUpdateTime", 25, commitmentUpdateTimeDescriptor);
+
+	/**
+	 * This parameter sets the probability to use the agents' perception
+	 * to update commitments, i.e., instead of using received opions.
+	 * Default: 0.1 (10%)
+	 */
+    rcl_interfaces::msg::ParameterDescriptor pPerceiveLightSourcesDescriptor;
+    pPerceiveLightSourcesDescriptor.name = "pPerceiveLightSources";
+    pPerceiveLightSourcesDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE;
+    pPerceiveLightSourcesDescriptor.description = "Probability to update robot commitment based on agents' perception of light sources.";
+    this -> node_ -> declare_parameter("pPerceiveLightSources", 0.1, pPerceiveLightSourcesDescriptor);
+
+	/**
+	 * This parameter sets the communication type between agents - Passive or Buffer.
+	 * Default: Passive (Value of 0)
+	 */
+    rcl_interfaces::msg::ParameterDescriptor commsTypeDescriptor;
+    commsTypeDescriptor.name = "commsType";
+    commsTypeDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER;
+    commsTypeDescriptor.description = "Communication type: Passive - 0, Buffer - 1.";
+    this -> node_ -> declare_parameter("commsType", 0, commsTypeDescriptor);
+
+	/**
+	 * This parameter sets the threshold to perform a hard turn.
+	 * Default: 50 degrees.
+	 */
+    rcl_interfaces::msg::ParameterDescriptor hardTurnOnAngleThresholdDescriptor;
+    hardTurnOnAngleThresholdDescriptor.name = "hardTurnOnAngleThreshold";
+    hardTurnOnAngleThresholdDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE;
+    hardTurnOnAngleThresholdDescriptor.description = "Threshold angle (degrees) to perform a hard turn.";
+    this -> node_ -> declare_parameter("hardTurnOnAngleThreshold", 50.0, hardTurnOnAngleThresholdDescriptor);
+
+	/**
+	 * This parameter sets the threshold to perform a soft turn.
+	 * Default: 50 degrees.
+	 */
+    rcl_interfaces::msg::ParameterDescriptor softTurnOnAngleThresholdDescriptor;
+    softTurnOnAngleThresholdDescriptor.name = "softTurnOnAngleThreshold";
+    softTurnOnAngleThresholdDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE;
+    softTurnOnAngleThresholdDescriptor.description = "Threshold angle (degrees) to perform a soft turn.";
+    this -> node_ -> declare_parameter("softTurnOnAngleThreshold", 10.0, softTurnOnAngleThresholdDescriptor);
+
+	/**
+	 * This parameter sets the no-turn threshold.
+	 * Default: 5 degrees.
+	 */
+    rcl_interfaces::msg::ParameterDescriptor noTurnOnAngleThresholdDescriptor;
+    noTurnOnAngleThresholdDescriptor.name = "noTurnOnAngleThreshold";
+    noTurnOnAngleThresholdDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE;
+    noTurnOnAngleThresholdDescriptor.description = "Threshold angle (degrees) for a no-turn.";
+    this -> node_ -> declare_parameter("noTurnOnAngleThreshold", 5.0, noTurnOnAngleThresholdDescriptor);
+
+	/**
+	 * This parameter sets the maximum speed of robots.
+	 * Default: 10.
+	 */
+    rcl_interfaces::msg::ParameterDescriptor maxSpeedDescriptor;
+    maxSpeedDescriptor.name = "maxSpeed";
+    maxSpeedDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE;
+    maxSpeedDescriptor.description = "Maximum speed for robots.";
+    this -> node_ -> declare_parameter("maxSpeed", 10.0, maxSpeedDescriptor);
+	
+}
+
+void Control::configure(){
+	/**this -> commitment_.id = std::stoi( std::string(ns_).substr (4) ) <= 10 ? 1 : 2;
+	this -> targetCommitment_ = 0;
+	Led color;
+	color.color= this -> commitment_.id == 1 ? "yellow" : "green";
+	this -> cmdLedPublisher_ -> publish(color);*/
+
+	rclcpp::Logger node_logger = this -> node_ -> get_logger();
+
+    this -> node_ -> get_parameter<std::uint32_t>("broadcastTime", broadcastTime_);
+    RCLCPP_INFO(node_logger, "broadcast time: %d", broadcastTime_);
+
+	this -> node_ -> get_parameter<std::uint32_t>("broadcastTime", commitmentUpdateTime_);
+    RCLCPP_INFO(node_logger, "commitment update time: %d", commitmentUpdateTime_);
+
+	this -> node_ -> get_parameter<float>("pPerceiveLightSources", pPerceiveLightSources_);
+    RCLCPP_INFO(node_logger, "probability to perceive light sources for update: %f", pPerceiveLightSources_);
+
+	int comms;
+	this -> node_ -> get_parameter<int>("commsType", comms);
+    RCLCPP_INFO(node_logger, "communication type: %d", comms);
+	commsType_ = (comms==0)? communicationType::PASSIVE : communicationType::BUFFER;
+
+	float angle;
+	this -> node_ -> get_parameter<float>("hardTurnOnAngleThreshold", angle);
+	RCLCPP_INFO(node_logger, "hard-turn on angle threshold: %f", angle);
+	m_sWheelTurningParams.HardTurnOnAngleThreshold = ToRadians(CDegrees(angle));
+    
+	this -> node_ -> get_parameter<float>("softTurnOnAngleThreshold", angle);
+	RCLCPP_INFO(node_logger, "soft-turn on angle threshold: %f", angle);
+	m_sWheelTurningParams.SoftTurnOnAngleThreshold = ToRadians(CDegrees(angle));
+
+	this -> node_ -> get_parameter<float>("noTurnOnAngleThreshold", angle);
+	RCLCPP_INFO(node_logger, "no-turn on angle threshold: %f", angle);
+	m_sWheelTurningParams.NoTurnAngleThreshold = ToRadians(CDegrees(angle));
+
+    this -> node_ -> get_parameter<float>("maxSpeed", m_sWheelTurningParams.MaxSpeed);
+    RCLCPP_INFO(node_logger, "maximum speed: %f", m_sWheelTurningParams.MaxSpeed);
+}
+
+/**************************
+ * Light callback function
+ *************************/
 void Control::lightCallback(const LightList lightList){
 	this->lightList = lightList;
 }
 
+/**************************
+ * Position callback function
+ *************************/
 void Control::posCallback(const Position position){
 	this -> curr_position = position;
 }
 
+/**************************
+ * Blob callback function
+ *************************/
 void Control::blobCallback(const BlobList blobList){
 	this -> blobList = blobList;
 	/**for (Blob blob : blobList.blobs)
 		std::cout << "value: " << blob.distance << ": angle: " << blob.angle << " color: " << blob.color << std::endl;*/
 }
 
-
+/**************************
+ * Range and Bearing callback function
+ *************************/
 void Control::rabCallback(const PacketList packets){
 	/* This check is important to ensure that we do not pick up
 	 * empty RAB sensor values - consider delay between ros2 and argos
@@ -438,7 +608,7 @@ void Control::rabCallback(const PacketList packets){
 			/**
 			 * If it is a new agent, insert new record
 			 */
-			if (msgBuffer.insert({int(currPacket.data[1]), int(currPacket.data[0])}).second){
+			if (msgBuffer_.insert({int(currPacket.data[1]), int(currPacket.data[0])}).second){
 				//cout << "Time: " << time_ << " Received New Robot-ID: " << currPacket.data[1] << " Light-ID: " << currPacket.data[0] << endl;
 				this -> rxPacketList_.packets.push_back(currPacket);
 				this -> rxPacketList_.n ++;
@@ -447,7 +617,7 @@ void Control::rabCallback(const PacketList packets){
 			 * If it is an existing record, update the agent commitment.
 			 */
 			else{
-				msgBuffer[int(currPacket.data[1])] = int(currPacket.data[0]);
+				msgBuffer_[int(currPacket.data[1])] = int(currPacket.data[0]);
 			}
 	}
 	}
@@ -460,7 +630,9 @@ void Control::rabCallback(const PacketList packets){
 
 }
 
-
+/**************************
+ * Proximity callback function
+ *************************/
 void Control::proxCallback(const ProximityList proxList){
 	if (time_ == 0 || this -> commitment_.id == -1){
 		initTargets();
@@ -499,9 +671,11 @@ void Control::proxCallback(const ProximityList proxList){
 
 	Blob closestBlob;
 	bool closestBlobIsNull = true;
-	float closestDist = std::numeric_limits<float>::infinity();;
+	float closestDist = std::numeric_limits<float>::infinity();
 	if ( this -> blobList.n > 0 ){ // just in case the light is not picked up
-
+			/**
+			 * Not committed to a light source yet
+			 */
 			if ( this -> commitment_.id == -1){
 				for ( Blob blob : blobList.blobs ){
 					if ( blob.distance < closestDist && blob.color != "red"){
@@ -610,9 +784,9 @@ void Control::proxCallback(const ProximityList proxList){
 		}
 	}
 	else {
-		if (msgBuffer.size() >= 3){
+		if (msgBuffer_.size() >= 3){
 			//cout << "***************************************************************" << std::endl;
-			for(auto it = msgBuffer.cbegin(); it != msgBuffer.cend(); ++it)
+			for(auto it = msgBuffer_.cbegin(); it != msgBuffer_.cend(); ++it)
 			{
 			//    std::cout << "Robot ID: " << it->first << " sent commitment: " << it->second << "\n";
 			}
@@ -621,14 +795,16 @@ void Control::proxCallback(const ProximityList proxList){
 			//cout << "***************************************************************" << std::endl;
 		}
 		else{
-			//std::cout << "Time " << time_ <<": This robot has : " << msgBuffer.size() << " received unique packets"<< "\n";
+			//std::cout << "Time " << time_ <<": This robot has : " << msgBuffer_.size() << " received unique packets"<< "\n";
 		}
 	}
 
 
 
 }
-
+/**************************
+ * Main function
+ *************************/
 int main(int argc, char **argv) {
 	rclcpp::init(argc, argv);
 	std::shared_ptr<rclcpp::Node> node = std::make_shared<rclcpp::Node>("argos_ros_node");
