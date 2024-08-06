@@ -26,6 +26,7 @@
 
 #include "util.h"
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp/parameter.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "collective_decision_making/msg/led.hpp"
 #include "collective_decision_making/msg/light.hpp"
@@ -66,7 +67,7 @@ public:
 	  CRadians SoftTurnOnAngleThreshold;
 	  CRadians NoTurnAngleThreshold;
 	  /* Maximum wheel speed */
-	  Real MaxSpeed;
+	  float MaxSpeed;
 
 	  void Init(/**TConfigurationNode& t_tree*/);
    };
@@ -156,6 +157,10 @@ public:
 
    void updateCommitment();
 
+   void initializeParameters();
+
+   void configure();
+
 
 private:
 	/**************************************
@@ -179,6 +184,8 @@ private:
 	rclcpp::Publisher<Packet>::SharedPtr cmdRabPublisher_;
 	// We use a Led interface to publish the desired LED color
 	rclcpp::Publisher<Led>::SharedPtr cmdLedPublisher_;
+
+	std::shared_ptr<rclcpp::Node> node_;
 
 	const char* ns_;
 
@@ -231,9 +238,9 @@ private:
 	/* The two target locations */
 	std::string lightSources_[2];
 
-	const uint32_t broadcastTime_;
+	uint32_t broadcastTime_;
 
-	const uint32_t commitmentUpdateTime_;
+	uint32_t commitmentUpdateTime_;
 
 	// Robot id - commitment
 	std::map<int, int> msgBuffer_;
