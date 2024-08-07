@@ -286,8 +286,8 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 		  * Broadcast  opinion and update opinion state
 		  */
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
-			cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
-					<< " angle: " << Abs(cHeadingAngle) << std::endl;
+			//cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
+			//		<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
          break;
@@ -301,8 +301,8 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 		  * Broadcast  opinion and update opinion state
 		  */
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
-			cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
-					<< " angle: " << Abs(cHeadingAngle) << std::endl;
+			//cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
+			//		<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
          break;
@@ -313,8 +313,8 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
     	  /** We can broadcast while doing a hard turn but only when utilizing PASSIVE communication */
     	  if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0
     			  && this -> commitment_.id != -1 && this -> commsType_ == PASSIVE ){
-			cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
-					<< " angle: " << Abs(cHeadingAngle) << std::endl;
+			//cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
+			//		<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast(true));
     	  }
          /* Opposite wheel speeds */
@@ -394,7 +394,7 @@ void Control::setCommitmentOpinions() {
 	}
 		if ( rxMessage_ && this -> commitment_.id != this -> rxCommitment_.id  && rxMsgType_ == RECRUITMENT_MSG) {			
 			this -> commitment_ = Target(rxCommitment_.coords, rxCommitment_.id);
-			cout << "new commitment id: " << rxCommitment_.id << std::endl;
+			cout << "Opinion new commitment id: " << rxCommitment_.id << std::endl;
 			Led color;
 			color.color= this -> commitment_.id == 1 ? "yellow" : "green";
 			//cout << "Publishing new LED color: " << color.color << std::endl;
@@ -640,13 +640,13 @@ void Control::proxCallback(const ProximityList proxList){
 		initTargets();
 		cout << "Initializing targets" << std::endl;
 
-		cout 	<< "Hard-turn-on-angle-threshold: " << m_sWheelTurningParams.HardTurnOnAngleThreshold << "\n"
-				<< "Soft-turn-on-angle-threshold: " << m_sWheelTurningParams.SoftTurnOnAngleThreshold << "\n"
-				<< "No-turn-on-angle-threshold: " << m_sWheelTurningParams.NoTurnAngleThreshold << "\n"
-				<< "Max speed: " << m_sWheelTurningParams.MaxSpeed << "\n"
-				<< "Broadcast time: " << broadcastTime_ << "\n"
-				<< "Commitment update time: " << commitmentUpdateTime_ << "\n"
-				<< "probability perceive: " << pPerceiveLightSources_ << "\n";
+		//cout 	<< "Hard-turn-on-angle-threshold: " << m_sWheelTurningParams.HardTurnOnAngleThreshold << "\n"
+		//		<< "Soft-turn-on-angle-threshold: " << m_sWheelTurningParams.SoftTurnOnAngleThreshold << "\n"
+		//		<< "No-turn-on-angle-threshold: " << m_sWheelTurningParams.NoTurnAngleThreshold << "\n"
+		//		<< "Max speed: " << m_sWheelTurningParams.MaxSpeed << "\n"
+		//		<< "Broadcast time: " << broadcastTime_ << "\n"
+		//		<< "Commitment update time: " << commitmentUpdateTime_ << "\n"
+		//		<< "probability perceive: " << pPerceiveLightSources_ << "\n";
 
 
 	}
@@ -760,7 +760,6 @@ void Control::proxCallback(const ProximityList proxList){
 	Twist twist;
 
 	if ( this -> state_ == robotState::AVOID ){
-		cout 	<< "Time " << time_ << " in AVOID state" <<endl;
 		if (closestObsIsNull){
 			twist = this -> lastTwist_;
 		}
@@ -775,7 +774,6 @@ void Control::proxCallback(const ProximityList proxList){
 		//twist = SetWheelSpeedsFromVector(driveToTarget(closestBlob));
 		CVector2 t(closestBlob.distance/100.0f, CRadians(closestBlob.angle));
 		twist = SetWheelSpeedsFromVector(CVector2(t.GetX(), t.GetY()));
-		cout 	<< "Time " << time_ << " in TO-TARGET state" <<endl;
 	}
 	/**else if ( this -> state_ == robotState::WANDER ){
 		twist = twistRandom();
@@ -787,15 +785,17 @@ void Control::proxCallback(const ProximityList proxList){
 
 	this -> cmdVelPublisher_ -> publish (twist);
 	this -> lastTwist_ = twist;
-	cout 	<< "Time " << time_ << " Current commitment id: " << commitment_.id << "\n"
-			<< "twist: " << twist.linear.x << ", " << twist.linear.y << endl;
+	//cout 	<< "Time " << time_ << " Current commitment id: " << commitment_.id << "\n"
+	//		<< "twist: " << twist.linear.x << ", " << twist.linear.y << endl;
 	/**
 	 * Update commitment
 	 */
 	if ( this -> commsType_ == PASSIVE){
 		if ( this -> time_ > 0 && this -> time_ % this -> commitmentUpdateTime_ == 0 ) {
-			//cout << "Time " << time_ << " Updating commitment..." << endl;
+			cout << "***************************************************************" << std::endl;
+			cout << "Time " << time_ << " Updating commitment..." << endl;
 			updateCommitment();
+			cout << "***************************************************************" << std::endl;
 		}
 	}
 	else {
@@ -809,9 +809,7 @@ void Control::proxCallback(const ProximityList proxList){
 			this -> updateCommitment();
 			//cout << "***************************************************************" << std::endl;
 		}
-		else{
-			//std::cout << "Time " << time_ <<": This robot has : " << msgBuffer_.size() << " received unique packets"<< "\n";
-		}
+		
 	}
 
 
