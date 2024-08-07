@@ -30,23 +30,25 @@ Control::Target::Target() : id(-1), coords(-1, -1){}
 Control::Control(std::shared_ptr<rclcpp::Node> node) :
 	time_(0),
 	stateStartTime_(0),
-	broadcastTime_(10),
-	commitmentUpdateTime_(25),
+	//broadcastTime_(10),
+	//commitmentUpdateTime_(25),
 	rxMessage_(false)
 	{
 	this -> node_ = node;
 	// Declare parameters.
-    //this->initializeParameters();
+    this->initializeParameters();
 
-    //this->configure();
+    this->configure();
 	commsType_ = communicationType::PASSIVE;
 	if ( commsType_ == communicationType::PASSIVE )
 		cout << "Passive - Comms" << std::endl;
 	else
 		cout << "Buffer - Comms" << std::endl;
-	m_sWheelTurningParams.Init();
-
-	this -> inhibitionType_ = inhibitionType::DIRECTSWITCH;
+	//m_sWheelTurningParams.Init();
+	cout 	<< "Hard-turn-on-angle-threshold: " << m_sWheelTurningParams.HardTurnOnAngleThreshold
+			<< " Soft-turn-on-angle-threshold: " << m_sWheelTurningParams.SoftTurnOnAngleThreshold
+			<< " No-turn-on-angle-threshold: " << m_sWheelTurningParams.NoTurnAngleThreshold
+			<< " Max speed: " << m_sWheelTurningParams.MaxSpeed << std::endl; 
 
 	this -> commitment_.id = -1;
 
@@ -124,11 +126,11 @@ void Control::initTargets(){
 	//targets_[1] = Point(-2, 18);
 	lightSources_[0] = "yellow";
 	lightSources_[1] = "green";
-	std::mt19937 rng(this -> dev());
-	std::uniform_int_distribution<std::mt19937::result_type> dist6(0,1); // distribution in range [1, 100]
-	int rand  = dist6(rng);
+	//std::mt19937 rng(this -> dev());
+	//std::uniform_int_distribution<std::mt19937::result_type> dist6(0,1); // distribution in range [1, 100]
+	//int rand  = dist6(rng);
 	//targetGPS_ = targets_[rand];
-	this -> commitment_.coords = Point();
+	//this -> commitment_.coords = Point();
 	//cout << "ns in int form: " << std::string(ns_).substr (4) << endl;
 	this -> commitment_.id = std::stoi( std::string(ns_).substr (4) ) <= 10 ? 1 : 2;
 	this -> targetCommitment_ = 0;
@@ -137,9 +139,7 @@ void Control::initTargets(){
 	color.color= this -> commitment_.id == 1 ? "yellow" : "green";
 	this -> cmdLedPublisher_ -> publish(color);
 
-	this -> inhibitionType_ = inhibitionType::DIRECTSWITCH;
-
-	this -> pPerceiveLightSources_ = 0.1f;
+	//this -> pPerceiveLightSources_ = 0.1f;
 }
 
 Twist Control::twistTowardsThing(float angle, bool backwards=false){
@@ -286,8 +286,8 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 		  * Broadcast  opinion and update opinion state
 		  */
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
-			/**cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
-					<< " angle: " << Abs(cHeadingAngle) << std::endl;*/
+			cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
+					<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
          break;
@@ -301,8 +301,8 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 		  * Broadcast  opinion and update opinion state
 		  */
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
-			/**cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
-					<< " angle: " << Abs(cHeadingAngle) << std::endl;*/
+			cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
+					<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
          break;
@@ -313,8 +313,8 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
     	  /** We can broadcast while doing a hard turn but only when utilizing PASSIVE communication */
     	  if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0
     			  && this -> commitment_.id != -1 && this -> commsType_ == PASSIVE ){
-			/**cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
-					<< " angle: " << Abs(cHeadingAngle) << std::endl;*/
+			cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
+					<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast(true));
     	  }
          /* Opposite wheel speeds */
@@ -366,7 +366,7 @@ void Control::setCommitmentOpinions() {
 	std::uniform_int_distribution<std::mt19937::result_type> dist6(0, this -> rxPacketList_.n); // distribution in range [1, 100]
 	int rand = dist6(rng);
 
-	std::cout << "Time: " << time_ << " Received a total of " << rxPacketList_.n << std::endl;
+	//std::cout << "Time: " << time_ << " Received a total of " << rxPacketList_.n << std::endl;
 	/**
 	 * TODO: find a method that returns items at a specific index
 	 * instead of looping through the whole list
@@ -388,7 +388,7 @@ void Control::setCommitmentOpinions() {
 			}
 			this -> rxMessage_ = true;
 
-			std::cout << "Time: " << time_ << " Picking number "<< rand << " id: " << this -> rxCommitment_.id << std::endl;
+			//std::cout << "Time: " << time_ << " Picking number "<< rand << " id: " << this -> rxCommitment_.id << std::endl;
 		}
 		index++;
 	}
@@ -541,10 +541,12 @@ void Control::configure(){
 
 	rclcpp::Logger node_logger = this -> node_ -> get_logger();
 
+	m_sWheelTurningParams.TurningMechanism = SWheelTurningParams::ETurningMechanism::NO_TURN;
+
     this -> node_ -> get_parameter<std::uint32_t>("broadcastTime", broadcastTime_);
     RCLCPP_INFO(node_logger, "broadcast time: %d", broadcastTime_);
 
-	this -> node_ -> get_parameter<std::uint32_t>("broadcastTime", commitmentUpdateTime_);
+	this -> node_ -> get_parameter<std::uint32_t>("commitmentUpdateTime", commitmentUpdateTime_);
     RCLCPP_INFO(node_logger, "commitment update time: %d", commitmentUpdateTime_);
 
 	this -> node_ -> get_parameter<float>("pPerceiveLightSources", pPerceiveLightSources_);
@@ -637,6 +639,16 @@ void Control::proxCallback(const ProximityList proxList){
 	if (time_ == 0 || this -> commitment_.id == -1){
 		initTargets();
 		cout << "Initializing targets" << std::endl;
+
+		cout 	<< "Hard-turn-on-angle-threshold: " << m_sWheelTurningParams.HardTurnOnAngleThreshold << "\n"
+				<< "Soft-turn-on-angle-threshold: " << m_sWheelTurningParams.SoftTurnOnAngleThreshold << "\n"
+				<< "No-turn-on-angle-threshold: " << m_sWheelTurningParams.NoTurnAngleThreshold << "\n"
+				<< "Max speed: " << m_sWheelTurningParams.MaxSpeed << "\n"
+				<< "Broadcast time: " << broadcastTime_ << "\n"
+				<< "Commitment update time: " << commitmentUpdateTime_ << "\n"
+				<< "probability perceive: " << pPerceiveLightSources_ << "\n";
+
+
 	}
 
 	this -> time_ ++;
@@ -748,6 +760,7 @@ void Control::proxCallback(const ProximityList proxList){
 	Twist twist;
 
 	if ( this -> state_ == robotState::AVOID ){
+		cout 	<< "Time " << time_ << " in AVOID state" <<endl;
 		if (closestObsIsNull){
 			twist = this -> lastTwist_;
 		}
@@ -762,6 +775,7 @@ void Control::proxCallback(const ProximityList proxList){
 		//twist = SetWheelSpeedsFromVector(driveToTarget(closestBlob));
 		CVector2 t(closestBlob.distance/100.0f, CRadians(closestBlob.angle));
 		twist = SetWheelSpeedsFromVector(CVector2(t.GetX(), t.GetY()));
+		cout 	<< "Time " << time_ << " in TO-TARGET state" <<endl;
 	}
 	/**else if ( this -> state_ == robotState::WANDER ){
 		twist = twistRandom();
@@ -773,13 +787,14 @@ void Control::proxCallback(const ProximityList proxList){
 
 	this -> cmdVelPublisher_ -> publish (twist);
 	this -> lastTwist_ = twist;
-	//cout << "Time " << time_ << " Current commitment id: " << commitment_.id << endl;
+	cout 	<< "Time " << time_ << " Current commitment id: " << commitment_.id << "\n"
+			<< "twist: " << twist.linear.x << ", " << twist.linear.y << endl;
 	/**
 	 * Update commitment
 	 */
 	if ( this -> commsType_ == PASSIVE){
 		if ( this -> time_ > 0 && this -> time_ % this -> commitmentUpdateTime_ == 0 ) {
-			cout << "Time " << time_ << " Updating commitment..." << endl;
+			//cout << "Time " << time_ << " Updating commitment..." << endl;
 			updateCommitment();
 		}
 	}
@@ -790,7 +805,7 @@ void Control::proxCallback(const ProximityList proxList){
 			{
 			//    std::cout << "Robot ID: " << it->first << " sent commitment: " << it->second << "\n";
 			}
-			cout << "Time " << time_ << " Updating commitment..." << endl;
+			//cout << "Time " << time_ << " Updating commitment..." << endl;
 			this -> updateCommitment();
 			//cout << "***************************************************************" << std::endl;
 		}
