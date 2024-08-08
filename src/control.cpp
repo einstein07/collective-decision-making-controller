@@ -12,6 +12,9 @@ using namespace collective_decision_making::msg;
 using namespace geometry_msgs::msg;
 using std::placeholders::_1;
 
+std::ofstream gLogFile;
+Logger *gLogger = NULL;
+
 void Control::SWheelTurningParams::Init() {
 	TurningMechanism = NO_TURN;
 	HardTurnOnAngleThreshold = ToRadians(CDegrees(50));//25,50
