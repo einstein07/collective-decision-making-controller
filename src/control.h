@@ -161,6 +161,8 @@ public:
 
    void configure();
 
+   void initLogging();
+
 
 private:
 	/**************************************
@@ -247,6 +249,14 @@ private:
 
 	// Probability to update commitment using perception
 	float pPerceiveLightSources_;
+
+	std::string gStartTime_;
+	//std::ofstream gLogFile;
+
+	//std::string gLogDirectoryname;
+	//std::string gLogFilename;
+	//std::string gLogFullFilename; // cf. the initL
+
 
 };
 

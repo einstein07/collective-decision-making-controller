@@ -13,7 +13,6 @@ using namespace geometry_msgs::msg;
 using std::placeholders::_1;
 
 std::ofstream gLogFile;
-Logger *gLogger = NULL;
 
 void Control::SWheelTurningParams::Init() {
 	TurningMechanism = NO_TURN;
@@ -56,6 +55,11 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 	this -> commitment_.id = -1;
 
 	this -> rxPacketList_.n = 0;
+
+	
+	gStartTime_ = getCurrentTimeAsReadableString();
+
+	initLogging();
 
 	// Go to nearest light source
 	state_ = TO_TARGET;
@@ -143,6 +147,27 @@ void Control::initTargets(){
 	this -> cmdLedPublisher_ -> publish(color);
 
 	//this -> pPerceiveLightSources_ = 0.1f;
+}
+
+void Control::initLogging(){
+	// ==== create specific "maps" logger file
+	Logger::gLogDirectoryname = "/home/sindiso/Desktop";
+	Logger:: gLogFilename =	std::string(ns_) + "_" + gStartTime_ + "_" + getpidAsReadableString() + ".csv";
+	Logger::gLogFullFilename = Logger::gLogDirectoryname + "/" + Logger::gLogFilename;
+	//std::string robotStateLogFullFilename = gLogDirectoryname + "/behavior-maps/maps_"
+	//		+ gStartTime_ + "_" + getpidAsReadableString() + ".csv";
+	Logger::gRobotStateLogFile.open(Logger::gLogFullFilename.c_str());
+
+	if(!Logger::gRobotStateLogFile) {
+		std::cout << "[CRITICAL] Cannot open \"robot state\" log file " << Logger::gLogFullFilename << "." << std::endl;
+		exit(-1);
+	}
+
+	Logger::gRobotStateLogger = new Logger();
+	Logger::gRobotStateLogger->setLoggerFile(Logger::gRobotStateLogFile);
+	Logger::gRobotStateLogger->write("Time, Commitment, Opinion, Light-Source-in-Sight");
+	Logger::gRobotStateLogger->write(std::string("\n"));
+	Logger::gRobotStateLogger->flush();
 }
 
 Twist Control::twistTowardsThing(float angle, bool backwards=false){
