@@ -15,6 +15,14 @@ std::mt19937 engine(rnd());
 std::uniform_real_distribution<double> disRandom(0.0, 1.0);
 std::normal_distribution<> disNormal(0,1);
 
+std::ofstream Logger::gRobotStateLogFile;
+Logger* Logger::gRobotStateLogger = NULL;
+std::string Logger::gLogDirectoryname;
+std::string Logger::gLogFilename;
+std::string Logger::gLogFullFilename;
+
+
+
 std::string getCurrentTimeAsReadableString(){
 	// --- get current time information
 

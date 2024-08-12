@@ -21,46 +21,11 @@
 #include <iostream>
 #include <boost/lexical_cast.hpp>
 class Logger;
-/**
- * \brief GLOBAL VARIABLES
- */
 
-/***************************************
- * Default logging
- **************************************/
-/**
- * \brief Log directory name
- */
-extern std::string gLogDirectoryname;
-/**
- * \brief Log file name
- */
-extern std::string gLogFilename;
-/**
- * \brief Log full filename - directory
- */
-extern std::string gLogFullFilename;
 /**
  * \brief Log file
  */
 extern std::ofstream gLogFile;
-/**
- * \brief Logger
- */
-extern Logger *gLogger;
-
-/****************************************
- * Specified logging
- ***************************************/
-/**
- * \brief Robot state (commitment and opinion) log file
- */
-static std::ofstream gRobotStateLogFile;
-/**
- * \brief Behavior map logger
- */
-static Logger* gMapsLogger;
-
 /**
  *\brief Random seed. Default value (="-1") means time based.
  *
@@ -165,6 +130,41 @@ private:
     std::ofstream *logFile;  // LogManager does not open/close. Assume it is handled elsewhere.
 
 public:
+    /**
+     * \brief GLOBAL VARIABLES
+     */
+
+    /***************************************
+     * Default logging
+     **************************************/
+    /**
+     * \brief Log directory name
+     */
+    static std::string gLogDirectoryname;
+    /**
+     * \brief Log file name
+     */
+    static std::string gLogFilename;
+    /**
+     * \brief Log full filename - directory
+     */
+    static std::string gLogFullFilename;
+    
+    /**
+     * \brief Logger
+     */
+    static Logger *gLogger;
+    /****************************************
+     * Specified logging
+     ***************************************/
+    /**
+     * \brief Robot state (commitment and opinion) log file
+     */
+    static std::ofstream gRobotStateLogFile;
+    /**
+     * \brief Robot state (commitment and opinion) logger
+     */
+    static Logger* gRobotStateLogger;
     /**
      * \brief Default Constructor
      */
