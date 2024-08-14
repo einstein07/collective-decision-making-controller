@@ -12,6 +12,8 @@ using namespace collective_decision_making::msg;
 using namespace geometry_msgs::msg;
 using std::placeholders::_1;
 
+std::ofstream gLogFile;
+
 void Control::SWheelTurningParams::Init() {
 	TurningMechanism = NO_TURN;
 	HardTurnOnAngleThreshold = ToRadians(CDegrees(50));//25,50
@@ -54,9 +56,15 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 
 	this -> rxPacketList_.n = 0;
 
+	
+	gStartTime_ = getCurrentTimeAsReadableString();
+
 	// Go to nearest light source
 	state_ = TO_TARGET;
 	ns_ = node_->get_namespace();
+
+	initLogging();
+
 	// Create the topic to publish
 	stringstream cmdVelTopic, cmdRabTopic, cmdLedTopic;
 	cmdVelTopic << ns_ << "/cmd_vel";
@@ -140,6 +148,27 @@ void Control::initTargets(){
 	this -> cmdLedPublisher_ -> publish(color);
 
 	//this -> pPerceiveLightSources_ = 0.1f;
+}
+
+void Control::initLogging(){
+	// ==== create specific "maps" logger file
+	//Logger::gLogDirectoryname = "/home/sindiso/Desktop";
+	Logger:: gLogFilename =	std::string(ns_) + "_" + gStartTime_ + "_" + getpidAsReadableString() + ".csv";
+	Logger::gLogFullFilename = Logger::gLogDirectoryname + "/" + Logger::gLogFilename;
+	//std::string robotStateLogFullFilename = gLogDirectoryname + "/behavior-maps/maps_"
+	//		+ gStartTime_ + "_" + getpidAsReadableString() + ".csv";
+	Logger::gRobotStateLogFile.open(Logger::gLogFullFilename.c_str());
+
+	if(!Logger::gRobotStateLogFile) {
+		std::cout << "[CRITICAL] Cannot open \"robot state\" log file " << Logger::gLogFullFilename << "." << std::endl;
+		exit(-1);
+	}
+
+	Logger::gRobotStateLogger = new Logger();
+	Logger::gRobotStateLogger->setLoggerFile(Logger::gRobotStateLogFile);
+	Logger::gRobotStateLogger->write("Time, Commitment, Opinion, Light-Source-in-Sight");
+	Logger::gRobotStateLogger->write(std::string("\n"));
+	Logger::gRobotStateLogger->flush();
 }
 
 Twist Control::twistTowardsThing(float angle, bool backwards=false){
@@ -286,7 +315,7 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 		  * Broadcast  opinion and update opinion state
 		  */
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
-			//cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
+			//cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id << endl;
 			//		<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
@@ -301,7 +330,7 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 		  * Broadcast  opinion and update opinion state
 		  */
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
-			//cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
+			//cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id << endl;
 			//		<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
@@ -313,7 +342,7 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
     	  /** We can broadcast while doing a hard turn but only when utilizing PASSIVE communication */
     	  if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0
     			  && this -> commitment_.id != -1 && this -> commsType_ == PASSIVE ){
-			//cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id
+			//cout 	<< "time: " << time_ << " broadcasting: " << 0 << endl ;
 			//		<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast(true));
     	  }
@@ -343,7 +372,7 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 }
 
 Packet Control::broadcast(bool uncommitted){
-
+	//cout << "Time " << time_ << " inside broad cast. . ." << endl;
 	Packet packet;
 	//packet.data.push_back(float(targetGPS_.x));
 	//packet.data.push_back(float(targetGPS_.y));
@@ -351,6 +380,17 @@ Packet Control::broadcast(bool uncommitted){
 	/**packet.data.push_back(float( this -> commitment_.coords.x ));
 	packet.data.push_back(float( this -> commitment_.coords.y ));*/
 	float targetToBroadcast = uncommitted? 0.0f : float( this -> commitment_.id );
+	// For logging purposes
+	if (uncommitted){
+		opinionsList.push_back(0);
+		//cout << "Time " << time_ << " pushed back 0" << endl;
+	}
+	else{
+		opinionsList.push_back(commitment_.id);
+		//std::cout << "Time " << time_ << " pushed back id: " << commitment_.id<< std::endl;
+	
+	}
+	
 	packet.data.push_back(targetToBroadcast);
 	//cout << "ns in int form: " << std::string(ns_).substr (4) << endl;
 	packet.id = std::string(ns_).substr (4);
@@ -394,7 +434,7 @@ void Control::setCommitmentOpinions() {
 	}
 		if ( rxMessage_ && this -> commitment_.id != this -> rxCommitment_.id  && rxMsgType_ == RECRUITMENT_MSG) {			
 			this -> commitment_ = Target(rxCommitment_.coords, rxCommitment_.id);
-			cout << "Opinion new commitment id: " << rxCommitment_.id << std::endl;
+			cout << "Time: " << time_ << " Opinion new commitment id: " << rxCommitment_.id << std::endl;
 			Led color;
 			color.color= this -> commitment_.id == 1 ? "yellow" : "green";
 			//cout << "Publishing new LED color: " << color.color << std::endl;
@@ -416,7 +456,7 @@ void Control::setCommitmentPerception(){
 		int rand = dist6(rng);
 
 		this -> commitment_ = Target(0, 0, rand);
-		cout << "Perception new commitment id: " << commitment_.id << std::endl;
+		cout << "Time: " << time_ <<" Perception new commitment id: " << commitment_.id << std::endl;
 		Led color;
 		color.color= this -> commitment_.id == 1 ? "yellow" : "green";
 		//cout << "Publishing new LED color: " << color.color << std::endl;
@@ -445,6 +485,7 @@ void Control::updateCommitment() {
 		std::cout << "Commitment ID not deleted: " << this -> rxCommitment_.id << std::endl;
 	}
 	msgBuffer_.clear();
+	opinionsList.clear();
 
 }
 
@@ -529,6 +570,21 @@ void Control::initializeParameters(){
     maxSpeedDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE;
     maxSpeedDescriptor.description = "Maximum speed for robots.";
     this -> node_ -> declare_parameter("maxSpeed", 10.0, maxSpeedDescriptor);
+
+	/****************************************
+	 * Logging related parameters
+	 ***************************************/
+	/**
+	 * This parameter sets the directory to save logs
+	 * Default: 10 ticks
+	 */
+	rcl_interfaces::msg::ParameterDescriptor logDirectoryDescriptor;
+    logDirectoryDescriptor.name = "logDirectoryName";
+    logDirectoryDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER;
+    logDirectoryDescriptor.description = "Directory to save logs during experiment run.";
+	const std::string package_name = "logging";
+	std::string defaultDirectory = ament_index_cpp::get_package_share_directory(package_name);
+    this -> node_ -> declare_parameter("logDirectoryName", defaultDirectory, logDirectoryDescriptor);
 	
 }
 
@@ -572,6 +628,12 @@ void Control::configure(){
 
     this -> node_ -> get_parameter<float>("maxSpeed", m_sWheelTurningParams.MaxSpeed);
     RCLCPP_INFO(node_logger, "maximum speed: %f", m_sWheelTurningParams.MaxSpeed);
+
+	/************************************************
+	 * Logs related configurations
+	 **********************************************/
+	this -> node_ -> get_parameter<string>("logDirectoryName", Logger::gLogDirectoryname);
+    RCLCPP_INFO(node_logger, "log directory: %s", Logger::gLogDirectoryname);
 }
 
 /**************************
@@ -638,7 +700,7 @@ void Control::rabCallback(const PacketList packets){
 void Control::proxCallback(const ProximityList proxList){
 	if (time_ == 0 || this -> commitment_.id == -1){
 		initTargets();
-		cout << "Initializing targets" << std::endl;
+		cout << "Time: " << time_ << " Initializing targets" << std::endl;
 
 		//cout 	<< "Hard-turn-on-angle-threshold: " << m_sWheelTurningParams.HardTurnOnAngleThreshold << "\n"
 		//		<< "Soft-turn-on-angle-threshold: " << m_sWheelTurningParams.SoftTurnOnAngleThreshold << "\n"
@@ -766,6 +828,15 @@ void Control::proxCallback(const ProximityList proxList){
 		else{
 			twist = twistTowardsThing(closestObs.angle, true);
 		}
+		/**
+		 * If it is time to broadcast just broadcast nonentheless
+		 */
+		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0
+				&& this -> commitment_.id != -1 && this -> commsType_ == PASSIVE ){
+			//cout 	<< "time: " << time_ << " broadcasting: " << 0 << endl ;
+			//		<< " angle: " << Abs(cHeadingAngle) << std::endl;
+			this -> cmdRabPublisher_ -> publish(broadcast(true));
+		}
 	}
 
 	else if ( this -> state_ == robotState::TO_TARGET ){
@@ -792,10 +863,11 @@ void Control::proxCallback(const ProximityList proxList){
 	 */
 	if ( this -> commsType_ == PASSIVE){
 		if ( this -> time_ > 0 && this -> time_ % this -> commitmentUpdateTime_ == 0 ) {
-			cout << "***************************************************************" << std::endl;
-			cout << "Time " << time_ << " Updating commitment..." << endl;
+			//cout << "***************************************************************" << std::endl;
+			//cout << "Time " << time_ << " Updating commitment..." << endl;
+			log();
 			updateCommitment();
-			cout << "***************************************************************" << std::endl;
+			//cout << "***************************************************************" << std::endl;
 		}
 	}
 	else {
@@ -806,6 +878,7 @@ void Control::proxCallback(const ProximityList proxList){
 			//    std::cout << "Robot ID: " << it->first << " sent commitment: " << it->second << "\n";
 			}
 			//cout << "Time " << time_ << " Updating commitment..." << endl;
+			log();
 			this -> updateCommitment();
 			//cout << "***************************************************************" << std::endl;
 		}
@@ -815,6 +888,34 @@ void Control::proxCallback(const ProximityList proxList){
 
 
 }
+
+void Control::log(){
+	int lightInSight = (this -> lightList.n > 0)? 1 : 0;
+
+	/***
+	 * Convert the opnions vector to a string
+	 */
+	std::ostringstream oss;
+	if (!opinionsList.empty())
+	{
+		// Convert all but the last element to avoid a trailing ","
+		std::copy(opinionsList.begin(), opinionsList.end()-1,
+			std::ostream_iterator<int>(oss, "; "));
+
+		// Now add the last element with no delimiter
+		oss << opinionsList.back();
+	}
+	else{
+		oss << "-";
+	}
+	
+	stringstream logLine;
+	logLine << time_ << ", " << commitment_.id << ", " << oss.str() << ", "<< lightInSight;
+	Logger::gRobotStateLogger->write(logLine.str());
+	Logger::gRobotStateLogger->write(std::string("\n"));
+	Logger::gRobotStateLogger->flush();
+}
+
 /**************************
  * Main function
  *************************/
