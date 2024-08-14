@@ -38,6 +38,7 @@
 #include "collective_decision_making/msg/proximity_list.hpp"
 #include "collective_decision_making/msg/packet.hpp"
 #include "collective_decision_making/msg/packet_list.hpp"
+#include "ament_index_cpp/get_package_share_directory.hpp"
 
 /* Function definitions for XML parsing */
 #include <argos3/core/utility/configuration/argos_configuration.h>
@@ -163,6 +164,8 @@ public:
 
    void initLogging();
 
+   void log();
+
 
 private:
 	/**************************************
@@ -251,6 +254,9 @@ private:
 	float pPerceiveLightSources_;
 
 	std::string gStartTime_;
+
+	// For logging purposes
+	std::vector<int> opinionsList;
 	//std::ofstream gLogFile;
 
 	//std::string gLogDirectoryname;
