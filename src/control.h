@@ -138,10 +138,6 @@ public:
 
 	void transition(robotState  newState);
 
-	CVector2 driveToTarget();
-
-	CVector2 driveToTarget(Blob closestBlob);
-
 	Twist twistRandom();
 
 	Twist twistTowardsThing(float angle, bool backwards);

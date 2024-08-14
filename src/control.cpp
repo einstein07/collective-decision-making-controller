@@ -46,12 +46,6 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 		cout << "Passive - Comms" << std::endl;
 	else
 		cout << "Buffer - Comms" << std::endl;
-	//m_sWheelTurningParams.Init();
-	cout 	<< "Hard-turn-on-angle-threshold: " << m_sWheelTurningParams.HardTurnOnAngleThreshold
-			<< " Soft-turn-on-angle-threshold: " << m_sWheelTurningParams.SoftTurnOnAngleThreshold
-			<< " No-turn-on-angle-threshold: " << m_sWheelTurningParams.NoTurnAngleThreshold
-			<< " Max speed: " << m_sWheelTurningParams.MaxSpeed << std::endl; 
-
 	this -> commitment_.id = -1;
 
 	this -> rxPacketList_.n = 0;
@@ -120,26 +114,9 @@ void Control::transition(robotState newState){
 	this ->  stateStartTime_ = this -> time_;
 }
 
-Twist Control::twistRandom(){
-	std::mt19937 rng(this -> dev());
-	std::uniform_int_distribution<std::mt19937::result_type> dist6(0,1); // distribution in range [1, 100]
-	Twist twist;
-	twist.linear.x = MAX_FORWARD_SPEED * dist6(rng);
-	twist.angular.z = MAX_FORWARD_SPEED * ( dist6(rng) - 0.5 );
-	return twist;
-}
-
 void Control::initTargets(){
-	//targets_[0] = Point(2, 18);
-	//targets_[1] = Point(-2, 18);
 	lightSources_[0] = "yellow";
 	lightSources_[1] = "green";
-	//std::mt19937 rng(this -> dev());
-	//std::uniform_int_distribution<std::mt19937::result_type> dist6(0,1); // distribution in range [1, 100]
-	//int rand  = dist6(rng);
-	//targetGPS_ = targets_[rand];
-	//this -> commitment_.coords = Point();
-	//cout << "ns in int form: " << std::string(ns_).substr (4) << endl;
 	this -> commitment_.id = std::stoi( std::string(ns_).substr (4) ) <= 10 ? 1 : 2;
 	this -> targetCommitment_ = 0;
 	
@@ -147,16 +124,12 @@ void Control::initTargets(){
 	color.color= this -> commitment_.id == 1 ? "yellow" : "green";
 	this -> cmdLedPublisher_ -> publish(color);
 
-	//this -> pPerceiveLightSources_ = 0.1f;
 }
 
 void Control::initLogging(){
 	// ==== create specific "maps" logger file
-	//Logger::gLogDirectoryname = "/home/sindiso/Desktop";
 	Logger:: gLogFilename =	std::string(ns_) + "_" + gStartTime_ + "_" + getpidAsReadableString() + ".csv";
 	Logger::gLogFullFilename = Logger::gLogDirectoryname + "/" + Logger::gLogFilename;
-	//std::string robotStateLogFullFilename = gLogDirectoryname + "/behavior-maps/maps_"
-	//		+ gStartTime_ + "_" + getpidAsReadableString() + ".csv";
 	Logger::gRobotStateLogFile.open(Logger::gLogFullFilename.c_str());
 
 	if(!Logger::gRobotStateLogFile) {
@@ -175,7 +148,7 @@ Twist Control::twistTowardsThing(float angle, bool backwards=false){
 	float v = 0.0f;
 	float w = 0.0f;
 
-	if ( std::abs(angle) < /**m_sWheelTurningParams.NoTurnAngleThreshold.GetValue()*/0.5 ){
+	if ( std::abs(angle) < 0.5 ){
 		// The object is roughly in-front, go "towards" it
 		if (backwards){
 			v = -MAX_FORWARD_SPEED;
@@ -199,80 +172,6 @@ Twist Control::twistTowardsThing(float angle, bool backwards=false){
 	return twist;
 }
 
-CVector2 Control::driveToTarget(){
-
-	CVector3 pos(
-			curr_position.position.x,
-			curr_position.position.y,
-			curr_position.position.z
-			);
-	CVector3 toTarget(targetGPS_.x, targetGPS_.y, 0);
-	//std::cout << "My target: " << toTarget << "current position: " << pos << std::endl;
-
-	CVector3 me2target(toTarget - pos);
-	//std::cout << "vector to target before rotation: " << me2target << std::endl;
-
-	CQuaternion orient(
-			curr_position.orientation.w,
-			curr_position.orientation.x,
-			curr_position.orientation.y,
-			curr_position.orientation.z
-			);
-
-	me2target.Rotate(orient.Conjugate());
-	//std::cout << "vector to target after rotation: " << me2target << std::endl;
-
-
-	CVector2 vec (
-			me2target.GetX(),
-			me2target.GetY()
-			);
-	return vec;
-}
-
-CVector2 Control::driveToTarget(Blob closestBlob){
-
-	CVector3 pos(
-			curr_position.position.x,
-			curr_position.position.y,
-			curr_position.position.z
-			);
-	float r = float(closestBlob.distance/100.0f);
-	float x = r * cos(closestBlob.angle);
-	float y = r * sin(closestBlob.angle);
-	float dist = std::sqrt(std::pow((2 - pos.GetX()), 2) + std::pow((18 - pos.GetY()), 2));
-
-	std::cout 	<< "calculated distance: " << dist << " measured in cm: "
-				<< closestBlob.distance << " in meters: "
-				<< float(closestBlob.distance/100.0f)
-				<< " angle: " << closestBlob.angle << std::endl;
-
-	CVector2 toTarget(float(pos.GetX() + x), float(pos.GetY() + y));
-	std::cout 	<< "relative target- x: " << x << " y: " << y
-				<< " current position: " << pos << std::endl;
-	std::cout << "global target: " << toTarget << std::endl;
-	CVector3 toTarget3(toTarget.GetX(), toTarget.GetY(), 0.0f);
-
-	CVector3 me2target(toTarget3 + pos);
-	//std::cout << "target pos before rotation: " << me2target << std::endl;
-
-	CQuaternion orient(
-			curr_position.orientation.w,
-			curr_position.orientation.x,
-			curr_position.orientation.y,
-			curr_position.orientation.z
-			);
-	me2target.Rotate(orient.Conjugate());
-	//std::cout << "target after rotation: " << me2target << std::endl;
-
-
-	CVector2 vec (
-			me2target.GetX(),
-			me2target.GetY()
-			);
-	return vec;
-}
-
 Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
    /* Get the heading angle */
    CRadians cHeadingAngle = c_heading.Angle().SignedNormalize();
@@ -281,7 +180,6 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
    /* Clamp the speed so that it's not greater than MaxSpeed */
    Real fBaseAngularWheelSpeed = Min<Real>(fHeadingLength, m_sWheelTurningParams.MaxSpeed);
 
-   //std::cout << "c-heading len: " << fHeadingLength << " angle: " << cHeadingAngle << " base angular-speeed: " << fBaseAngularWheelSpeed << std::endl;
    /* State transition logic */
    if(m_sWheelTurningParams.TurningMechanism == SWheelTurningParams::HARD_TURN) {
       if(Abs(cHeadingAngle) <= m_sWheelTurningParams.SoftTurnOnAngleThreshold) {
@@ -315,8 +213,6 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 		  * Broadcast  opinion and update opinion state
 		  */
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
-			//cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id << endl;
-			//		<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
          break;
@@ -330,20 +226,14 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 		  * Broadcast  opinion and update opinion state
 		  */
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
-			//cout 	<< "time: " << time_ << " broadcasting: " << this -> commitment_.id << endl;
-			//		<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
          break;
       }
       case SWheelTurningParams::HARD_TURN: {
-    	  /**cout 	<< "HARD-TURN -> time: " << this -> time_
-    	  					<< " angle: " << Abs(cHeadingAngle) << std::endl; */
     	  /** We can broadcast while doing a hard turn but only when utilizing PASSIVE communication */
     	  if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0
     			  && this -> commitment_.id != -1 && this -> commsType_ == PASSIVE ){
-			//cout 	<< "time: " << time_ << " broadcasting: " << 0 << endl ;
-			//		<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast(true));
     	  }
          /* Opposite wheel speeds */
@@ -372,30 +262,21 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 }
 
 Packet Control::broadcast(bool uncommitted){
-	//cout << "Time " << time_ << " inside broad cast. . ." << endl;
 	Packet packet;
-	//packet.data.push_back(float(targetGPS_.x));
-	//packet.data.push_back(float(targetGPS_.y));
-
-	/**packet.data.push_back(float( this -> commitment_.coords.x ));
-	packet.data.push_back(float( this -> commitment_.coords.y ));*/
+	
 	float targetToBroadcast = uncommitted? 0.0f : float( this -> commitment_.id );
 	// For logging purposes
 	if (uncommitted){
 		opinionsList.push_back(0);
-		//cout << "Time " << time_ << " pushed back 0" << endl;
 	}
 	else{
 		opinionsList.push_back(commitment_.id);
-		//std::cout << "Time " << time_ << " pushed back id: " << commitment_.id<< std::endl;
-	
+		
 	}
 	
 	packet.data.push_back(targetToBroadcast);
-	//cout << "ns in int form: " << std::string(ns_).substr (4) << endl;
 	packet.id = std::string(ns_).substr (4);
 
-	//std::cout << " Time " << time_ << " Sending my commitment: " << packet.data[0] << ", My ID: " << packet.id << std::endl;
 	return packet;
 
 }
@@ -406,11 +287,6 @@ void Control::setCommitmentOpinions() {
 	std::uniform_int_distribution<std::mt19937::result_type> dist6(0, this -> rxPacketList_.n); // distribution in range [1, 100]
 	int rand = dist6(rng);
 
-	//std::cout << "Time: " << time_ << " Received a total of " << rxPacketList_.n << std::endl;
-	/**
-	 * TODO: find a method that returns items at a specific index
-	 * instead of looping through the whole list
-	 */
 	size_t index = 0;
 	for ( Packet currPacket : rxPacketList_.packets ){
 
@@ -428,7 +304,6 @@ void Control::setCommitmentOpinions() {
 			}
 			this -> rxMessage_ = true;
 
-			//std::cout << "Time: " << time_ << " Picking number "<< rand << " id: " << this -> rxCommitment_.id << std::endl;
 		}
 		index++;
 	}
@@ -437,7 +312,6 @@ void Control::setCommitmentOpinions() {
 			cout << "Time: " << time_ << " Opinion new commitment id: " << rxCommitment_.id << std::endl;
 			Led color;
 			color.color= this -> commitment_.id == 1 ? "yellow" : "green";
-			//cout << "Publishing new LED color: " << color.color << std::endl;
 			this -> cmdLedPublisher_ -> publish(color);
 		}
 
@@ -459,7 +333,6 @@ void Control::setCommitmentPerception(){
 		cout << "Time: " << time_ <<" Perception new commitment id: " << commitment_.id << std::endl;
 		Led color;
 		color.color= this -> commitment_.id == 1 ? "yellow" : "green";
-		//cout << "Publishing new LED color: " << color.color << std::endl;
 		this -> cmdLedPublisher_ -> publish(color);
 
 	}
@@ -480,7 +353,6 @@ void Control::updateCommitment() {
 	rxMessage_ = false;
 	this -> rxPacketList_.packets.clear();
 	this -> rxPacketList_.n = 0;
-	//cout << "Cleaning list... List size: " << this -> rxPacketList_.n << std::endl;
 	for ( Packet currPacket : rxPacketList_.packets ){
 		std::cout << "Commitment ID not deleted: " << this -> rxCommitment_.id << std::endl;
 	}
@@ -589,12 +461,6 @@ void Control::initializeParameters(){
 }
 
 void Control::configure(){
-	/**this -> commitment_.id = std::stoi( std::string(ns_).substr (4) ) <= 10 ? 1 : 2;
-	this -> targetCommitment_ = 0;
-	Led color;
-	color.color= this -> commitment_.id == 1 ? "yellow" : "green";
-	this -> cmdLedPublisher_ -> publish(color);*/
-
 	rclcpp::Logger node_logger = this -> node_ -> get_logger();
 
 	m_sWheelTurningParams.TurningMechanism = SWheelTurningParams::ETurningMechanism::NO_TURN;
@@ -655,8 +521,6 @@ void Control::posCallback(const Position position){
  *************************/
 void Control::blobCallback(const BlobList blobList){
 	this -> blobList = blobList;
-	/**for (Blob blob : blobList.blobs)
-		std::cout << "value: " << blob.distance << ": angle: " << blob.angle << " color: " << blob.color << std::endl;*/
 }
 
 /**************************
@@ -668,12 +532,10 @@ void Control::rabCallback(const PacketList packets){
 	 */
 	if ( time_ > this->broadcastTime_ +4 ){
 		for ( Packet currPacket : packets.packets ){
-			//	if ( this -> commsType_ == BUFFER ){
 			/**
 			 * If it is a new agent, insert new record
 			 */
 			if (msgBuffer_.insert({int(currPacket.data[1]), int(currPacket.data[0])}).second){
-				//cout << "Time: " << time_ << " Received New Robot-ID: " << currPacket.data[1] << " Light-ID: " << currPacket.data[0] << endl;
 				this -> rxPacketList_.packets.push_back(currPacket);
 				this -> rxPacketList_.n ++;
 			}
@@ -686,12 +548,6 @@ void Control::rabCallback(const PacketList packets){
 	}
 	}
 
-		//	else{
-		//		this -> rxPacketList_.packets.push_back(currPacket);
-		//		this -> rxPacketList_.n ++;
-		//	}
-		//}
-
 }
 
 /**************************
@@ -701,16 +557,6 @@ void Control::proxCallback(const ProximityList proxList){
 	if (time_ == 0 || this -> commitment_.id == -1){
 		initTargets();
 		cout << "Time: " << time_ << " Initializing targets" << std::endl;
-
-		//cout 	<< "Hard-turn-on-angle-threshold: " << m_sWheelTurningParams.HardTurnOnAngleThreshold << "\n"
-		//		<< "Soft-turn-on-angle-threshold: " << m_sWheelTurningParams.SoftTurnOnAngleThreshold << "\n"
-		//		<< "No-turn-on-angle-threshold: " << m_sWheelTurningParams.NoTurnAngleThreshold << "\n"
-		//		<< "Max speed: " << m_sWheelTurningParams.MaxSpeed << "\n"
-		//		<< "Broadcast time: " << broadcastTime_ << "\n"
-		//		<< "Commitment update time: " << commitmentUpdateTime_ << "\n"
-		//		<< "probability perceive: " << pPerceiveLightSources_ << "\n";
-
-
 	}
 
 	this -> time_ ++;
@@ -762,7 +608,7 @@ void Control::proxCallback(const ProximityList proxList){
 				targetCommitment_ = closestBlob.color == "yellow" ? 1 : 2;
 				Led color;
 				color.color= this -> commitment_.id == 1 ? "yellow" : "green";
-				//cout << "Publishing new LED color: " << color.color << std::endl;
+				
 				this -> cmdLedPublisher_ -> publish(color);
 
 			}
@@ -784,12 +630,6 @@ void Control::proxCallback(const ProximityList proxList){
 	 */
 	if (this ->  state_ == robotState::AVOID){
 		// Only leave upon time out
-		/**if ( this -> time_ - this -> stateStartTime_ > STATE_TIME_OUT ){
-			transition(robotState::WANDER);
-		}
-		if ( this -> time_ - this -> stateStartTime_ > STATE_TIME_OUT && ! closestLightIsNull ){
-			transition(robotState::TO_TARGET);
-		}*/
 		if ( this -> time_ - this -> stateStartTime_ > STATE_TIME_OUT && ! closestBlobIsNull ){
 			transition(robotState::TO_TARGET);
 		}
@@ -798,18 +638,7 @@ void Control::proxCallback(const ProximityList proxList){
 		if ( ! closestObsIsNull){
 			transition(robotState::AVOID);
 		}
-		/*else if (closestLightIsNull || this -> time_ - this -> stateStartTime_ > 50){
-			transition(robotState::WANDER);
-		}*/
 	}
-	/**else if (this -> state_ == robotState::WANDER){
-		if ( ! closestObsIsNull ){
-			transition(robotState::AVOID);
-		}
-		else if ( ! closestLightIsNull ){
-			transition(robotState::TO_TARGET);
-		}
-	}*/
 	else{
 		std::cerr << "Error: Invalid state" << std::endl;
 	}
@@ -817,7 +646,6 @@ void Control::proxCallback(const ProximityList proxList){
 	/**
 	 * Handle state actions
 	 */
-	//std::cout << "State: " << this -> state_ << std::endl;
 
 	Twist twist;
 
@@ -833,54 +661,32 @@ void Control::proxCallback(const ProximityList proxList){
 		 */
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0
 				&& this -> commitment_.id != -1 && this -> commsType_ == PASSIVE ){
-			//cout 	<< "time: " << time_ << " broadcasting: " << 0 << endl ;
-			//		<< " angle: " << Abs(cHeadingAngle) << std::endl;
 			this -> cmdRabPublisher_ -> publish(broadcast(true));
 		}
 	}
 
 	else if ( this -> state_ == robotState::TO_TARGET ){
-		//twist = SetWheelSpeedsFromVector(driveToTarget());
-		//twist = twistTowardsThing(closestBlob.angle);
-		//twist = SetWheelSpeedsFromVector(driveToTarget(closestBlob));
 		CVector2 t(closestBlob.distance/100.0f, CRadians(closestBlob.angle));
 		twist = SetWheelSpeedsFromVector(CVector2(t.GetX(), t.GetY()));
 	}
-	/**else if ( this -> state_ == robotState::WANDER ){
-		twist = twistRandom();
-	}*/
-
 	else{
 		std::cerr << "Error: Invalid state" << std::endl;
 	}
-
 	this -> cmdVelPublisher_ -> publish (twist);
 	this -> lastTwist_ = twist;
-	//cout 	<< "Time " << time_ << " Current commitment id: " << commitment_.id << "\n"
-	//		<< "twist: " << twist.linear.x << ", " << twist.linear.y << endl;
 	/**
 	 * Update commitment
 	 */
 	if ( this -> commsType_ == PASSIVE){
 		if ( this -> time_ > 0 && this -> time_ % this -> commitmentUpdateTime_ == 0 ) {
-			//cout << "***************************************************************" << std::endl;
-			//cout << "Time " << time_ << " Updating commitment..." << endl;
 			log();
 			updateCommitment();
-			//cout << "***************************************************************" << std::endl;
 		}
 	}
 	else {
 		if (msgBuffer_.size() >= 3){
-			//cout << "***************************************************************" << std::endl;
-			for(auto it = msgBuffer_.cbegin(); it != msgBuffer_.cend(); ++it)
-			{
-			//    std::cout << "Robot ID: " << it->first << " sent commitment: " << it->second << "\n";
-			}
-			//cout << "Time " << time_ << " Updating commitment..." << endl;
 			log();
 			this -> updateCommitment();
-			//cout << "***************************************************************" << std::endl;
 		}
 		
 	}
@@ -896,8 +702,7 @@ void Control::log(){
 	 * Convert the opnions vector to a string
 	 */
 	std::ostringstream oss;
-	if (!opinionsList.empty())
-	{
+	if (!opinionsList.empty()){
 		// Convert all but the last element to avoid a trailing ","
 		std::copy(opinionsList.begin(), opinionsList.end()-1,
 			std::ostream_iterator<int>(oss, "; "));
