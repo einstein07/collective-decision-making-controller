@@ -6,9 +6,9 @@
   <!-- ************************* -->
   <framework>
     <system threads="0" />
-    <experiment length="0"
+    <experiment length="1000"
                 ticks_per_second="50"
-                random_seed="124" />
+                random_seed="31314" />
   </framework>
 
   <!-- *************** -->
@@ -42,6 +42,16 @@
     </argos_ros_bot_controller>
 
   </controllers>
+  
+  <!-- ****************** -->
+  <!-- * Loop functions * -->
+  <!-- ****************** -->
+  <loop_functions library="libtrajectory_loop_functions.so"
+                  label="trajectory_loop_functions" >
+  <logging directory="/home/sindiso/ros2_ws/install/controller/share/controller/logs/trajectory"
+            frequency="5"
+            light_radius="3" />
+  </loop_functions>
 
   <!-- *********************** -->
   <!-- * Arena configuration * -->
@@ -130,9 +140,11 @@
   <!-- ****************** -->
   <visualization>
     <qt-opengl>
+      <user_functions library="libtrajectory_loop_functions.so"
+                      label="trajectory_qtuser_functions" />
       <camera>
         <placements>
-          <placement index="0" position="3.47447,8.20587,3.42167" look_at="3.94263,7.5512,2.82817" up="0.345221,-0.48276,0.804839" lens_focal_length="20" />
+          <placement index="0" position="-6.83677,-0.0492575,7.1301" look_at="-6.14438,-0.0492575,6.40857" up="0.721522,-3.4075e-17,0.692391" lens_focal_length="65" />
         </placements>
       </camera>
     </qt-opengl>
