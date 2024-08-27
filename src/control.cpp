@@ -454,7 +454,7 @@ void Control::initializeParameters(){
     logDirectoryDescriptor.name = "logDirectoryName";
     logDirectoryDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER;
     logDirectoryDescriptor.description = "Directory to save logs during experiment run.";
-	const std::string package_name = "logging";
+	const std::string package_name = "controller";
 	std::string defaultDirectory = ament_index_cpp::get_package_share_directory(package_name);
     this -> node_ -> declare_parameter("logDirectoryName", defaultDirectory, logDirectoryDescriptor);
 	
