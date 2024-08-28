@@ -8,20 +8,34 @@
 
 n=20
 
-LAUNCH_FILE=/tmp/argos_interface.launch.xml
+LAUNCH_FILE=/tmp/argos_interface.launch.py
 
-echo "<launch>" > $LAUNCH_FILE
+echo "import os" > $LAUNCH_FILE
+echo -e "import pathlib" >> $LAUNCH_FILE
+echo -e "import launch" >> $LAUNCH_FILE
+echo -e "import yaml" >> $LAUNCH_FILE
+echo -e "from launch import LaunchDescription" >> $LAUNCH_FILE
+echo -e "from launch_ros.actions import Node" >> $LAUNCH_FILE
+
+echo -e "from ament_index_python.packages import get_package_share_directory" >> $LAUNCH_FILE
+
+echo -e "def generate_launch_description():" >> $LAUNCH_FILE
+echo -e "\tconfig_dir = os.path.join('/home/sindiso/ros2_ws/src/collective-decision-making-controller', 'config')" >> $LAUNCH_FILE
+echo -e "\tparam_config = os.path.join(config_dir, \"config.yaml\")" >> $LAUNCH_FILE
+echo -e "\twith open(param_config, 'r') as f:" >> $LAUNCH_FILE
+echo -e "\t\tparams = yaml.safe_load(f)[\"controller\"][\"ros__parameters\"]" >> $LAUNCH_FILE
+    
+echo -e "\tld = LaunchDescription()" >> $LAUNCH_FILE
 
 for ((i=0; i<n; i++)); do
     namespace="bot$i"
-    echo -e "\t<group>"
-    echo -e "\t\t<node pkg=\"collective_decision_making\" exec=\"controller\" name=\"controller\" output=\"screen\" namespace=\"$namespace\" args=\"$namespace\"/>"
-    echo -e "\t</group>"
+    echo -e "\t$namespace = Node(package=\"collective_decision_making\", executable=\"controller\", name=\"controller\", output=\"screen\", namespace=\"$namespace\", parameters=[params])" >> $LAUNCH_FILE
+    echo -e "\tld.add_action($namespace)" >> $LAUNCH_FILE
 done >> $LAUNCH_FILE
-echo -e "</launch>" >> $LAUNCH_FILE
+echo -e "\treturn ld" >> $LAUNCH_FILE
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME//ros2_ws/install/loop_functions/lib
-export ARGOS_PLUGIN_PATH=$HOME/ros2_ws/install/loop_functions/lib/
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME//ros2_ws/install/collective_decision_making/lib
+export ARGOS_PLUGIN_PATH=$HOME/ros2_ws/install/collective_decision_making/lib/
 
 argos3 -c world.argos &
 
