@@ -20,7 +20,7 @@ echo -e "from launch_ros.actions import Node" >> $LAUNCH_FILE
 echo -e "from ament_index_python.packages import get_package_share_directory" >> $LAUNCH_FILE
 
 echo -e "def generate_launch_description():" >> $LAUNCH_FILE
-echo -e "\tconfig_dir = os.path.join(get_package_share_directory('controller'), 'config')" >> $LAUNCH_FILE
+echo -e "\tconfig_dir = os.path.join('/home/sindiso/ros2_ws/src/collective-decision-making-controller', 'config')" >> $LAUNCH_FILE
 echo -e "\tparam_config = os.path.join(config_dir, \"config.yaml\")" >> $LAUNCH_FILE
 echo -e "\twith open(param_config, 'r') as f:" >> $LAUNCH_FILE
 echo -e "\t\tparams = yaml.safe_load(f)[\"controller\"][\"ros__parameters\"]" >> $LAUNCH_FILE
