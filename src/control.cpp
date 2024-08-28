@@ -499,7 +499,7 @@ void Control::configure(){
 	 * Logs related configurations
 	 **********************************************/
 	this -> node_ -> get_parameter<string>("logDirectoryName", Logger::gLogDirectoryname);
-    RCLCPP_INFO(node_logger, "log directory: %s", Logger::gLogDirectoryname);
+	std::cout << "log directory: " << Logger::gLogDirectoryname << std::endl;
 }
 
 /**************************
