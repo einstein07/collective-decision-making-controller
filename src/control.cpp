@@ -102,8 +102,8 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 			1,
 			std::bind(&Control::blobCallback, this, _1)
 			);
-
-	for ( Packet currPacket : rxPacketList_.packets ){
+	// This should never happen!!!
+ 	for ( Packet currPacket : rxPacketList_.packets ){
 		std::cout << "At init - id: " << currPacket.data[1] << std::endl;
 	}
 
@@ -309,7 +309,7 @@ void Control::setCommitmentOpinions() {
 	}
 		if ( rxMessage_ && this -> commitment_.id != this -> rxCommitment_.id  && rxMsgType_ == RECRUITMENT_MSG) {			
 			this -> commitment_ = Target(rxCommitment_.coords, rxCommitment_.id);
-			cout << "Time: " << time_ << " Opinion new commitment id: " << rxCommitment_.id << std::endl;
+			//cout << "Time: " << time_ << " Opinion new commitment id: " << rxCommitment_.id << std::endl;
 			Led color;
 			color.color= this -> commitment_.id == 1 ? "yellow" : "green";
 			this -> cmdLedPublisher_ -> publish(color);
@@ -330,7 +330,7 @@ void Control::setCommitmentPerception(){
 		int rand = dist6(rng);
 
 		this -> commitment_ = Target(0, 0, rand);
-		cout << "Time: " << time_ <<" Perception new commitment id: " << commitment_.id << std::endl;
+		//cout << "Time: " << time_ <<" Perception new commitment id: " << commitment_.id << std::endl;
 		Led color;
 		color.color= this -> commitment_.id == 1 ? "yellow" : "green";
 		this -> cmdLedPublisher_ -> publish(color);
@@ -556,7 +556,7 @@ void Control::rabCallback(const PacketList packets){
 void Control::proxCallback(const ProximityList proxList){
 	if (time_ == 0 || this -> commitment_.id == -1){
 		initTargets();
-		cout << "Time: " << time_ << " Initializing targets" << std::endl;
+		//cout << "Time: " << time_ << " Initializing targets" << std::endl;
 	}
 
 	this -> time_ ++;
