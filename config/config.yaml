@@ -8,3 +8,4 @@ controller:
     softTurnOnAngleThreshold: 10.0
     noTurnOnAngleThreshold: 5.0
     maxSpeed: 10.0
+    logDirectoryName: "/home/sindiso/ros2_ws/install/controller/share/controller/logs/"
