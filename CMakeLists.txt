@@ -57,6 +57,6 @@ target_link_libraries(controller
 
 install(TARGETS
   controller
-  DESTINATION lib/${PROJECT_NAME})
+  DESTINATION ../collective_decision_making/lib/collective_decision_making)
 
 ament_package()
