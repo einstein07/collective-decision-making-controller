@@ -48,7 +48,7 @@
   <!-- ****************** -->
   <loop_functions library="libtrajectory_loop_functions.so"
                   label="trajectory_loop_functions" >
-  <logging directory="/home/sindiso/ros2_ws/install/controller/share/controller/logs/trajectory"
+  <logging directory="/opt/logs"
             frequency="5"
             light_radius="3" />
   </loop_functions>
