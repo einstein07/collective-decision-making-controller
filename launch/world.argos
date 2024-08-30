@@ -48,7 +48,7 @@
   <!-- ****************** -->
   <loop_functions library="libtrajectory_loop_functions.so"
                   label="trajectory_loop_functions" >
-  <logging directory="/opt/logs"
+  <logging directory="/mnt"
             frequency="5"
             light_radius="3" />
   </loop_functions>
