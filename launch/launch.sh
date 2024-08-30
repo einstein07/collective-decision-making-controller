@@ -34,9 +34,8 @@ for ((i=0; i<n; i++)); do
 done >> $LAUNCH_FILE
 echo -e "\treturn ld" >> $LAUNCH_FILE
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/ros2_ws/install/collective_decision_making/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/argos3:/opt/ros2_ws/install/collective_decision_making/lib
 export ARGOS_PLUGIN_PATH=/opt/ros2_ws/install/collective_decision_making/lib/
-export LD_LIBRARY_PATH="/usr/local/lib/argos3"
 
 . /opt/ros/humble/setup.sh
 
