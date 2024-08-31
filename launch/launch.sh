@@ -37,7 +37,7 @@ echo -e "\treturn ld" >> $LAUNCH_FILE
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/argos3:/opt/ros2_ws/install/collective_decision_making/lib
 export ARGOS_PLUGIN_PATH=/opt/ros2_ws/install/collective_decision_making/lib/
 
-argos3 -c world.argos -z &
+argos3 -c /opt/ros2_ws/src/collective-decision-making-controller/launch/world.argos -z &
 
 ros2 launch $LAUNCH_FILE 
 
