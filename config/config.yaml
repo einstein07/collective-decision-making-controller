@@ -1,6 +1,6 @@
 controller:
   ros__parameters:
-    broadcastTime: 10
+    broadcastTime: 5
     commitmentUpdateTime: 25
     pPerceiveLightSources: 0.1
     commsType: 0
