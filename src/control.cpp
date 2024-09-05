@@ -136,7 +136,7 @@ void Control::initLogging(){
 		std::cout << "[CRITICAL] Cannot open \"robot state\" log file " << Logger::gLogFullFilename << "." << std::endl;
 		exit(-1);
 	}
-
+	std::cout << "Log filename: " << Logger::gLogFullFilename << std::endl;
 	Logger::gRobotStateLogger = new Logger();
 	Logger::gRobotStateLogger->setLoggerFile(Logger::gRobotStateLogFile);
 	Logger::gRobotStateLogger->write("Time, Commitment, Opinion, Light-Source-in-Sight");
