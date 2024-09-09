@@ -42,10 +42,10 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 
     this->configure();
 	commsType_ = communicationType::PASSIVE;
-	if ( commsType_ == communicationType::PASSIVE )
-		cout << "Passive - Comms" << std::endl;
-	else
-		cout << "Buffer - Comms" << std::endl;
+	//if ( commsType_ == communicationType::PASSIVE )
+		//cout << "Passive - Comms" << std::endl;
+	//else
+		//cout << "Buffer - Comms" << std::endl;
 	this -> commitment_.id = -1;
 
 	this -> rxPacketList_.n = 0;
@@ -69,12 +69,13 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 	cmdRabPublisher_ = node_ -> create_publisher<Packet>(cmdRabTopic.str(), 1);
 	cmdLedPublisher_ = node_ -> create_publisher<Led>(cmdLedTopic.str(), 1);
 	// Create the subscribers
-	stringstream lightListTopic, proxTopic, posTopic, rabTopic, blobTopic;
+	stringstream lightListTopic, proxTopic, posTopic, rabTopic, blobTopic, killTopic;
 	lightListTopic << ns_ << "/light";
 	proxTopic << ns_ << "/proximity";
 	posTopic << ns_ << "/position";
 	rabTopic << ns_ << "/rab";
 	blobTopic << ns_ << "/blob";
+	killTopic << "/kill";
 
 	lightListSubscriber_ = node_ -> create_subscription<collective_decision_making::msg::LightList>(
 				lightListTopic.str(),
@@ -101,6 +102,11 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 			blobTopic.str(),
 			1,
 			std::bind(&Control::blobCallback, this, _1)
+			);
+	killSubscriber_	= node_ -> create_subscription<Signal>(
+			killTopic.str(),
+			1,
+			std::bind(&Control::killCallback, this, _1)
 			);
 	// This should never happen!!!
  	for ( Packet currPacket : rxPacketList_.packets ){
@@ -466,34 +472,34 @@ void Control::configure(){
 	m_sWheelTurningParams.TurningMechanism = SWheelTurningParams::ETurningMechanism::NO_TURN;
 
     this -> node_ -> get_parameter<std::uint32_t>("broadcastTime", broadcastTime_);
-    RCLCPP_INFO(node_logger, "broadcast time: %d", broadcastTime_);
+    //RCLCPP_INFO(node_logger, "broadcast time: %d", broadcastTime_);
 
 	this -> node_ -> get_parameter<std::uint32_t>("commitmentUpdateTime", commitmentUpdateTime_);
-    RCLCPP_INFO(node_logger, "commitment update time: %d", commitmentUpdateTime_);
+    //RCLCPP_INFO(node_logger, "commitment update time: %d", commitmentUpdateTime_);
 
 	this -> node_ -> get_parameter<float>("pPerceiveLightSources", pPerceiveLightSources_);
-    RCLCPP_INFO(node_logger, "probability to perceive light sources for update: %f", pPerceiveLightSources_);
+    //RCLCPP_INFO(node_logger, "probability to perceive light sources for update: %f", pPerceiveLightSources_);
 
 	int comms;
 	this -> node_ -> get_parameter<int>("commsType", comms);
-    RCLCPP_INFO(node_logger, "communication type: %d", comms);
+    //RCLCPP_INFO(node_logger, "communication type: %d", comms);
 	commsType_ = (comms==0)? communicationType::PASSIVE : communicationType::BUFFER;
 
 	float angle;
 	this -> node_ -> get_parameter<float>("hardTurnOnAngleThreshold", angle);
-	RCLCPP_INFO(node_logger, "hard-turn on angle threshold: %f", angle);
+	//RCLCPP_INFO(node_logger, "hard-turn on angle threshold: %f", angle);
 	m_sWheelTurningParams.HardTurnOnAngleThreshold = ToRadians(CDegrees(angle));
     
 	this -> node_ -> get_parameter<float>("softTurnOnAngleThreshold", angle);
-	RCLCPP_INFO(node_logger, "soft-turn on angle threshold: %f", angle);
+	//RCLCPP_INFO(node_logger, "soft-turn on angle threshold: %f", angle);
 	m_sWheelTurningParams.SoftTurnOnAngleThreshold = ToRadians(CDegrees(angle));
 
 	this -> node_ -> get_parameter<float>("noTurnOnAngleThreshold", angle);
-	RCLCPP_INFO(node_logger, "no-turn on angle threshold: %f", angle);
+	//RCLCPP_INFO(node_logger, "no-turn on angle threshold: %f", angle);
 	m_sWheelTurningParams.NoTurnAngleThreshold = ToRadians(CDegrees(angle));
 
     this -> node_ -> get_parameter<float>("maxSpeed", m_sWheelTurningParams.MaxSpeed);
-    RCLCPP_INFO(node_logger, "maximum speed: %f", m_sWheelTurningParams.MaxSpeed);
+    //RCLCPP_INFO(node_logger, "maximum speed: %f", m_sWheelTurningParams.MaxSpeed);
 
 	/************************************************
 	 * Logs related configurations
@@ -521,6 +527,17 @@ void Control::posCallback(const Position position){
  *************************/
 void Control::blobCallback(const BlobList blobList){
 	this -> blobList = blobList;
+}
+
+/**************************
+ * Kill signal callback function
+ *************************/
+void Control::killCallback(const Signal sig){
+	if (sig.signal == 1){
+		std::cout << "received kill signal" << std::endl;
+		rclcpp::shutdown();
+		exit(0);
+	}
 }
 
 /**************************
@@ -560,6 +577,8 @@ void Control::proxCallback(const ProximityList proxList){
 	}
 
 	this -> time_ ++;
+
+	//uint32_t ros::Publisher::getNumSubscribers() const
 
 	/**
 	 * Find the closest obstacle (other robot or wall).  The closest obstacle
