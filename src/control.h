@@ -17,7 +17,6 @@
 #include <random>
 #include <climits>
 
-
 /* Vector2 definitions */
 #include <argos3/core/utility/math/vector2.h>
 #include <argos3/core/utility/math/vector3.h>
@@ -29,6 +28,7 @@
 #include "rclcpp/parameter.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "collective_decision_making/msg/led.hpp"
+#include "collective_decision_making/msg/signal.hpp"
 #include "collective_decision_making/msg/light.hpp"
 #include "collective_decision_making/msg/light_list.hpp"
 #include "collective_decision_making/msg/blob.hpp"
@@ -136,6 +136,8 @@ public:
 
 	void blobCallback(const BlobList blobList);
 
+	void killCallback(const Signal sig);
+
 	void transition(robotState  newState);
 
 	Twist twistRandom();
@@ -177,6 +179,8 @@ private:
 	rclcpp::Subscription<PacketList>::SharedPtr rabSubscriber_;
 	// colored-blob-omnidirectional-camera sensor subscriber
 	rclcpp::Subscription<BlobList>::SharedPtr blobSubscriber_;
+	// kill signal subscriber
+	rclcpp::Subscription<Signal>::SharedPtr killSubscriber_;
 	/**************************************
 	 * Create topic publishers
 	 **************************************/
