@@ -16,6 +16,7 @@
 #include <sstream>
 #include <random>
 #include <climits>
+#include <algorithm>
 
 /* Vector2 definitions */
 #include <argos3/core/utility/math/vector2.h>
