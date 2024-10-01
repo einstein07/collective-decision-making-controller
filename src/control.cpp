@@ -134,7 +134,7 @@ void Control::initTargets(){
 
 void Control::initLogging(){
 	// ==== create specific "maps" logger file
-	Logger:: gLogFilename =	std::string(ns_) + "_" + gStartTime_ + "_" + getpidAsReadableString() + ".csv";
+	Logger:: gLogFilename = Logger:: gExperiementname + "_" + std::string(ns_).substr (1) + "_" + gStartTime_ + "_" + getpidAsReadableString() + ".csv";
 	Logger::gLogFullFilename = Logger::gLogDirectoryname + "/" + Logger::gLogFilename;
 	Logger::gRobotStateLogFile.open(Logger::gLogFullFilename.c_str());
 
@@ -463,6 +463,17 @@ void Control::initializeParameters(){
 	const std::string package_name = "controller";
 	std::string defaultDirectory = ament_index_cpp::get_package_share_directory(package_name);
     this -> node_ -> declare_parameter("logDirectoryName", defaultDirectory, logDirectoryDescriptor);
+
+	/**
+	 * This parameter sets the experiment name
+	 * Default: current time 
+	 */
+	rcl_interfaces::msg::ParameterDescriptor experimentNameDescriptor;
+    experimentNameDescriptor.name = "experimentName";
+    experimentNameDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER;
+    experimentNameDescriptor.description = "Experiment run name.";
+	std::string defaultExperimentName = std::string(gStartTime_);
+    this -> node_ -> declare_parameter("experimentName", defaultExperimentName, experimentNameDescriptor);
 	
 }
 
@@ -506,6 +517,9 @@ void Control::configure(){
 	 **********************************************/
 	this -> node_ -> get_parameter<string>("logDirectoryName", Logger::gLogDirectoryname);
 	std::cout << "log directory: " << Logger::gLogDirectoryname << std::endl;
+
+	this -> node_ -> get_parameter<string>("experimentName", Logger::gExperiementname);
+	std::cout << "experiment name: " << Logger::gExperiementname << std::endl;
 }
 
 /**************************

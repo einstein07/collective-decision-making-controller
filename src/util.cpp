@@ -18,6 +18,7 @@ std::normal_distribution<> disNormal(0,1);
 std::ofstream Logger::gRobotStateLogFile;
 Logger* Logger::gRobotStateLogger = NULL;
 std::string Logger::gLogDirectoryname;
+std::string Logger::gExperiementname;
 std::string Logger::gLogFilename;
 std::string Logger::gLogFullFilename;
 
