@@ -50,7 +50,8 @@
                   label="trajectory_loop_functions" >
   <logging directory="/mnt"
             frequency="5"
-            light_radius="3" />
+            light_radius="3"
+            experiment_name="run1" />
   </loop_functions>
 
   <!-- *********************** -->
