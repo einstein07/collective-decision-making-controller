@@ -9,3 +9,4 @@ controller:
     noTurnOnAngleThreshold: 5.0
     maxSpeed: 10.0
     logDirectoryName: "/mnt"
+    experimentName: "run1"
