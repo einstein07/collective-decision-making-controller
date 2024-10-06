@@ -7,7 +7,7 @@
   <framework>
     <system threads="0" />
     <experiment length="1200"
-                ticks_per_second="50"
+                ticks_per_second="10"
                 random_seed="0" />
   </framework>
 
@@ -51,7 +51,7 @@
   <logging directory="/mnt"
             frequency="5"
             light_radius="3"
-            experiment_name="run1" />
+            experiment_name="10_ticks_per_second" />
   </loop_functions>
 
   <!-- *********************** -->
