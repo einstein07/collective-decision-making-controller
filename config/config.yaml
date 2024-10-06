@@ -1,7 +1,7 @@
 controller:
   ros__parameters:
-    broadcastTime: 5
-    commitmentUpdateTime: 25
+    broadcastTime: 1
+    commitmentUpdateTime: 5
     pPerceiveLightSources: 0.1
     commsType: 0
     hardTurnOnAngleThreshold: 50.0
@@ -9,4 +9,4 @@ controller:
     noTurnOnAngleThreshold: 5.0
     maxSpeed: 10.0
     logDirectoryName: "/mnt"
-    experimentName: "run1"
+    experimentName: "10_ticks_per_second"
