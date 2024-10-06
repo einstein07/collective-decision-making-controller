@@ -117,7 +117,7 @@ public:
 	/**
 	 * Constants
 	 */
-	const static int STATE_TIME_OUT = 50;
+	const static int STATE_TIME_OUT = 10;//50;
 	const static int MAX_FORWARD_SPEED = 1;
 	static constexpr float MAX_ROTATION_SPEED = 2.5f;
 
