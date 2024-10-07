@@ -51,7 +51,7 @@
   <logging directory="/mnt"
             frequency="5"
             light_radius="3"
-            experiment_name="10_ticks_per_second" />
+            experiment_name="10_ticks_per_second-25-thresh" />
   </loop_functions>
 
   <!-- *********************** -->
