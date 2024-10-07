@@ -4,9 +4,9 @@ controller:
     commitmentUpdateTime: 5
     pPerceiveLightSources: 0.1
     commsType: 0
-    hardTurnOnAngleThreshold: 50.0
+    hardTurnOnAngleThreshold: 25.0
     softTurnOnAngleThreshold: 10.0
     noTurnOnAngleThreshold: 5.0
     maxSpeed: 10.0
     logDirectoryName: "/mnt"
-    experimentName: "10_ticks_per_second"
+    experimentName: "10_ticks_per_second-25-thresh"
