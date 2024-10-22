@@ -349,7 +349,7 @@ void Control::setCommitmentPerception(){
 void Control::updateCommitment() {
 
 	float dice = float(randint()%100) / 100.0;
-	if ( dice <= pPerceiveLightSources_ ){
+	if ( dice < pPerceiveLightSources_ ){
 		setCommitmentPerception();
 	}
 	else{
