@@ -2,7 +2,7 @@ controller:
   ros__parameters:
     broadcastTime: 1
     commitmentUpdateTime: 5
-    pPerceiveLightSources: 0.1
+    pPerceiveLightSources: 0
     commsType: 0
     hardTurnOnAngleThreshold: 75.0
     softTurnOnAngleThreshold: 10.0
