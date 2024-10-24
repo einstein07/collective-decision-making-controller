@@ -30,6 +30,15 @@
         <range_and_bearing implementation="medium" medium="rab"/>
 
       </sensors>
+      <params>
+        <wheel_turning hard_turn_angle_threshold="90"
+                       soft_turn_angle_threshold="70"
+                       no_turn_angle_threshold="10"
+                       max_speed="10" />
+        <flocking target_distance="75"
+                  gain="1000"
+                  exponent="2" />
+      </params>
     </argos_ros_bot_controller>
 
   </controllers>
