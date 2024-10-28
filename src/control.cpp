@@ -661,7 +661,7 @@ void Control::proxCallback(const ProximityList proxList){
 	/**
 	 * Handle the state transitions
 	 */
-	if (this ->  state_ == robotState::AVOID){
+	/**if (this ->  state_ == robotState::AVOID){
 		// Only leave upon time out
 		if ( this -> time_ - this -> stateStartTime_ > STATE_TIME_OUT && ! closestBlobIsNull ){
 			transition(robotState::TO_TARGET);
@@ -674,7 +674,7 @@ void Control::proxCallback(const ProximityList proxList){
 	}
 	else{
 		std::cerr << "Error: Invalid state" << std::endl;
-	}
+	}*/
 
 	/**
 	 * Handle state actions
