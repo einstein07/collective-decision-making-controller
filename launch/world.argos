@@ -51,7 +51,7 @@
   <logging directory="/mnt"
             frequency="5"
             light_radius="3"
-            experiment_name="10_ticks_per_second_75_thresh_0_perception" />
+            experiment_name="10_ticks_per_second_75_thresh_no_collisions" />
   </loop_functions>
 
   <!-- *********************** -->
@@ -111,7 +111,7 @@
     
     <distribute>
       <position method="uniform" min="-1,-19,0" max="1,-18.5,0" />
-      <orientation method="gaussian" mean="0,0,0" std_dev="360,0,0" />
+      <orientation method="gaussian" mean="90,0,0" std_dev="0,0,0" />
       <entity quantity="20" max_trials="100">
         <foot-bot id="bot" rab_range="100" omnidirectional_camera_aperture="89.99" >
           <controller config="argos_ros_bot" />
