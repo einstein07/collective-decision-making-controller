@@ -51,7 +51,7 @@
   <logging directory="/mnt"
             frequency="5"
             light_radius="1"
-            experiment_name="60_thresh_collisions_10_commitment_update" />
+            experiment_name="60_thresh_collisions_15_commitment_update" />
   </loop_functions>
 
   <!-- *********************** -->
