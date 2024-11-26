@@ -1,7 +1,7 @@
 controller:
   ros__parameters:
     broadcastTime: 1
-    commitmentUpdateTime: 15
+    commitmentUpdateTime: 1
     pPerceiveLightSources: 0.1
     commsType: 0
     hardTurnOnAngleThreshold: 60.0
@@ -9,4 +9,4 @@ controller:
     noTurnOnAngleThreshold: 10.0
     maxSpeed: 10.0
     logDirectoryName: "/mnt"
-    experimentName: "60_thresh_collisions_15_commitment_update"
+    experimentName: "60_thresh_collisions_1_commitment_update"
