@@ -50,8 +50,8 @@
                   label="trajectory_loop_functions" >
   <logging directory="/mnt"
             frequency="5"
-            light_radius="3"
-            experiment_name="10_ticks_per_second_75_thresh_collisions" />
+            light_radius="4"
+            experiment_name="50_thresh_collisions" />
   </loop_functions>
 
   <!-- *********************** -->
