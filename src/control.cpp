@@ -123,11 +123,18 @@ void Control::transition(robotState newState){
 void Control::initTargets(){
 	lightSources_[0] = "yellow";
 	lightSources_[1] = "green";
-	this -> commitment_.id = std::stoi( std::string(ns_).substr (4) ) <= 10 ? 1 : 2;
+	lightSources_[2] = numOfTargets_ == 3 ? "magenta" : "none";
+	if (numOfTargets_ == 2){
+		this -> commitment_.id = std::stoi( std::string(ns_).substr (4) ) <= 10 ? 1 : 2;
+	}
+	else if (numOfTargets_ == 3){
+		this -> commitment_.id = std::stoi( std::string(ns_).substr (4) ) <= 6 ? 1 : (std::stoi( std::string(ns_).substr (4) ) <= 13 ? 2 : 3);
+	}
+	
 	this -> targetCommitment_ = 0;
 	
 	Led color;
-	color.color= this -> commitment_.id == 1 ? "yellow" : "green";
+	color.color = this -> commitment_.id == 1 ? "yellow" : (this -> commitment_.id == 2 ? "green" : "magenta") ;
 	this -> cmdLedPublisher_ -> publish(color);
 
 }
@@ -317,7 +324,7 @@ void Control::setCommitmentOpinions() {
 			this -> commitment_ = Target(rxCommitment_.coords, rxCommitment_.id);
 			//cout << "Time: " << time_ << " Opinion new commitment id: " << rxCommitment_.id << std::endl;
 			Led color;
-			color.color= this -> commitment_.id == 1 ? "yellow" : "green";
+			color.color= this -> commitment_.id == 1 ? "yellow" : (this -> commitment_.id == 2 ? "green" : "magenta");
 			this -> cmdLedPublisher_ -> publish(color);
 		}
 
@@ -326,7 +333,7 @@ void Control::setCommitmentOpinions() {
 void Control::setCommitmentPerception(){
 	int blobsInSightCount = 0;
 	for ( Blob blob : blobList.blobs ){
-		if ( blob.color == "yellow" || blob.color == "green" ){
+		if ( blob.color == "yellow" || blob.color == "green" || blob.color == "magenta" ){
 			blobsInSightCount++;
 		}
 	}
@@ -338,7 +345,7 @@ void Control::setCommitmentPerception(){
 		this -> commitment_ = Target(0, 0, rand);
 		//cout << "Time: " << time_ <<" Perception new commitment id: " << commitment_.id << std::endl;
 		Led color;
-		color.color= this -> commitment_.id == 1 ? "yellow" : "green";
+		color.color= this -> commitment_.id == 1 ? "yellow" : (this -> commitment_.id == 2 ? "green" : "magenta");
 		this -> cmdLedPublisher_ -> publish(color);
 
 	}
@@ -398,6 +405,16 @@ void Control::initializeParameters(){
     pPerceiveLightSourcesDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE;
     pPerceiveLightSourcesDescriptor.description = "Probability to update robot commitment based on agents' perception of light sources.";
     this -> node_ -> declare_parameter("pPerceiveLightSources", 0.1, pPerceiveLightSourcesDescriptor);
+
+	/**
+	 * This parameter sets the sets the number of targets in the environment
+	 * Default: 2
+	 */
+    rcl_interfaces::msg::ParameterDescriptor numberOfTargetsDescriptor;
+    numberOfTargetsDescriptor.name = "numberOfTargets";
+    numberOfTargetsDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER;
+    numberOfTargetsDescriptor.description = "Number of targets in the environment.";
+    this -> node_ -> declare_parameter("numberOfTargets", 2, numberOfTargetsDescriptor);
 
 	/**
 	 * This parameter sets the communication type between agents - Passive or Buffer.
@@ -483,34 +500,37 @@ void Control::configure(){
 	m_sWheelTurningParams.TurningMechanism = SWheelTurningParams::ETurningMechanism::NO_TURN;
 
     this -> node_ -> get_parameter<std::uint32_t>("broadcastTime", broadcastTime_);
-    //RCLCPP_INFO(node_logger, "broadcast time: %d", broadcastTime_);
+    RCLCPP_INFO(node_logger, "broadcast time: %d", broadcastTime_);
 
 	this -> node_ -> get_parameter<std::uint32_t>("commitmentUpdateTime", commitmentUpdateTime_);
-    //RCLCPP_INFO(node_logger, "commitment update time: %d", commitmentUpdateTime_);
+    RCLCPP_INFO(node_logger, "commitment update time: %d", commitmentUpdateTime_);
 
 	this -> node_ -> get_parameter<float>("pPerceiveLightSources", pPerceiveLightSources_);
-    //RCLCPP_INFO(node_logger, "probability to perceive light sources for update: %f", pPerceiveLightSources_);
+    RCLCPP_INFO(node_logger, "probability to perceive light sources for update: %f", pPerceiveLightSources_);
+
+	this -> node_ -> get_parameter<int>("numberOfTargets", numOfTargets_);
+    RCLCPP_INFO(node_logger, "number of light sources in the environment: %d", numOfTargets_);
 
 	int comms;
 	this -> node_ -> get_parameter<int>("commsType", comms);
-    //RCLCPP_INFO(node_logger, "communication type: %d", comms);
+    RCLCPP_INFO(node_logger, "communication type: %d", comms);
 	commsType_ = (comms==0)? communicationType::PASSIVE : communicationType::BUFFER;
 
 	float angle;
 	this -> node_ -> get_parameter<float>("hardTurnOnAngleThreshold", angle);
-	//RCLCPP_INFO(node_logger, "hard-turn on angle threshold: %f", angle);
+	RCLCPP_INFO(node_logger, "hard-turn on angle threshold: %f", angle);
 	m_sWheelTurningParams.HardTurnOnAngleThreshold = ToRadians(CDegrees(angle));
     
 	this -> node_ -> get_parameter<float>("softTurnOnAngleThreshold", angle);
-	//RCLCPP_INFO(node_logger, "soft-turn on angle threshold: %f", angle);
+	RCLCPP_INFO(node_logger, "soft-turn on angle threshold: %f", angle);
 	m_sWheelTurningParams.SoftTurnOnAngleThreshold = ToRadians(CDegrees(angle));
 
 	this -> node_ -> get_parameter<float>("noTurnOnAngleThreshold", angle);
-	//RCLCPP_INFO(node_logger, "no-turn on angle threshold: %f", angle);
+	RCLCPP_INFO(node_logger, "no-turn on angle threshold: %f", angle);
 	m_sWheelTurningParams.NoTurnAngleThreshold = ToRadians(CDegrees(angle));
 
     this -> node_ -> get_parameter<float>("maxSpeed", m_sWheelTurningParams.MaxSpeed);
-    //RCLCPP_INFO(node_logger, "maximum speed: %f", m_sWheelTurningParams.MaxSpeed);
+    RCLCPP_INFO(node_logger, "maximum speed: %f", m_sWheelTurningParams.MaxSpeed);
 
 	/************************************************
 	 * Logs related configurations
@@ -637,10 +657,10 @@ void Control::proxCallback(const ProximityList proxList){
 						closestDist = blob.distance;
 					}
 				}
-				commitment_.id = closestBlob.color == "yellow" ? 1 : 2;
-				targetCommitment_ = closestBlob.color == "yellow" ? 1 : 2;
+				commitment_.id = closestBlob.color == "yellow" ? 1 : ("green" ? 2 : 3);
+				targetCommitment_ = closestBlob.color == "yellow" ? 1 : ("green" ? 2 : 3);
 				Led color;
-				color.color= this -> commitment_.id == 1 ? "yellow" : "green";
+				color.color= this -> commitment_.id == 1 ? "yellow" : (2 ? "green" : "magenta");
 				
 				this -> cmdLedPublisher_ -> publish(color);
 

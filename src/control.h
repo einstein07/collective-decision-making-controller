@@ -242,7 +242,7 @@ private:
 	Point targets_[2];
 
 	/* The two target locations */
-	std::string lightSources_[2];
+	std::string lightSources_[3];
 
 	uint32_t broadcastTime_;
 
@@ -253,6 +253,9 @@ private:
 
 	// Probability to update commitment using perception
 	float pPerceiveLightSources_;
+
+	// Probability to update commitment using perception
+	int numOfTargets_;
 
 	std::string gStartTime_;
 
