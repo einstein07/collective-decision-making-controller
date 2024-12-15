@@ -3,10 +3,11 @@ controller:
     broadcastTime: 1
     commitmentUpdateTime: 5
     pPerceiveLightSources: 0.1
+    numberOfTargets: 3
     commsType: 0
-    hardTurnOnAngleThreshold: 50.0
+    hardTurnOnAngleThreshold: 60.0
     softTurnOnAngleThreshold: 20.0
     noTurnOnAngleThreshold: 10.0
     maxSpeed: 10.0
     logDirectoryName: "/mnt"
-    experimentName: "50_thresh_collisions"
+    experimentName: "3_targets_collisions"
