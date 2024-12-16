@@ -39,7 +39,7 @@ export ARGOS_PLUGIN_PATH=/opt/ros2_ws/install/collective_decision_making/lib/
 # keep topics local to computer
 export ROS_LOCALHOST_ONLY=1
 
-argos3 -c /opt/ros2_ws/src/collective-decision-making-controller/launch/geometryOfDecisionMakingWorldThreeTargets.argos -z &
+argos3 -c /opt/ros2_ws/src/collective-decision-making-controller/launch/worldThreeTargets.argos -z &
 
 ros2 launch $LAUNCH_FILE 
 
