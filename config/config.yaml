@@ -5,9 +5,9 @@ controller:
     pPerceiveLightSources: 0.0
     numberOfTargets: 3
     commsType: 0
-    hardTurnOnAngleThreshold: 60.0
+    hardTurnOnAngleThreshold: 50.0
     softTurnOnAngleThreshold: 20.0
     noTurnOnAngleThreshold: 10.0
     maxSpeed: 10.0
     logDirectoryName: "/mnt"
-    experimentName: "3_targets_collisions_0_perception"
+    experimentName: "3_targets_collisions_0_perception_50_ht"
