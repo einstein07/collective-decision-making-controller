@@ -51,7 +51,7 @@
   <logging directory="/mnt"
             frequency="5"
             light_radius="1"
-            experiment_name="3_targets_collisions_0_perception_50_ht" />
+            experiment_name="3_targets_collisions_10_perception_50_ht" />
   </loop_functions>
 
   <!-- *********************** -->
