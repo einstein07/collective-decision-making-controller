@@ -2,7 +2,7 @@ controller:
   ros__parameters:
     broadcastTime: 1
     commitmentUpdateTime: 5
-    pPerceiveLightSources: 0.1
+    pPerceiveLightSources: 0.0
     numberOfTargets: 3
     commsType: 0
     hardTurnOnAngleThreshold: 50.0
@@ -10,4 +10,4 @@ controller:
     noTurnOnAngleThreshold: 10.0
     maxSpeed: 10.0
     logDirectoryName: "/mnt"
-    experimentName: "3_targets_collisions_10_perception_50_ht"
+    experimentName: "3_targets_collisions_0_perception_50_ht"
