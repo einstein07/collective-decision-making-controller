@@ -322,7 +322,7 @@ void Control::setCommitmentOpinions() {
 	}
 		if ( rxMessage_ && this -> commitment_.id != this -> rxCommitment_.id  && rxMsgType_ == RECRUITMENT_MSG) {			
 			this -> commitment_ = Target(rxCommitment_.coords, rxCommitment_.id);
-			//cout << "Time: " << time_ << " Opinion new commitment id: " << rxCommitment_.id << std::endl;
+			cout << "Time: " << time_ << " Opinion new commitment id: " << rxCommitment_.id << std::endl;
 			Led color;
 			color.color= this -> commitment_.id == 1 ? "yellow" : (this -> commitment_.id == 2 ? "green" : "magenta");
 			this -> cmdLedPublisher_ -> publish(color);
@@ -332,17 +332,38 @@ void Control::setCommitmentOpinions() {
 
 void Control::setCommitmentPerception(){
 	int blobsInSightCount = 0;
+	int targetsInSight [3];
 	for ( Blob blob : blobList.blobs ){
-		if ( blob.color == "yellow" || blob.color == "green" || blob.color == "magenta" ){
-			blobsInSightCount++;
+		if (( blob.color == "yellow" || blob.color == "green" || blob.color == "magenta" )){
+			std::cout << "blob color: " << blob.color << " angle: " << blob.angle * (180/3.141592653589793) << std::endl; 
+			if ( abs(blob.angle) <= ( 35 * (3.141592653589793/180) ) ){
+				if (blob.color == "yellow"){
+					targetsInSight[blobsInSightCount] = 1;
+				}
+				else if (blob.color == "green"){
+					targetsInSight[blobsInSightCount] = 2;
+				}
+				else if (blob.color == "magenta"){
+					targetsInSight[blobsInSightCount] = 3;
+					std::cout << "magenta added: " << targetsInSight[blobsInSightCount] << " blob count: " << blobsInSightCount << std::endl;
+
+				}
+				std::cout << "target added: " << targetsInSight[blobsInSightCount] << std::endl;
+				blobsInSightCount++;
+			}
+			else{
+				std::cout << "target not added because: " << abs(blob.angle) << " greater than " << ( 35 * (3.141592653589793/180) ) << std::endl;
+			}
+			
 		}
 	}
 	if (blobsInSightCount > 0){
 		std::mt19937 rng(this -> dev());
 		std::uniform_int_distribution<std::mt19937::result_type> dist6(1, blobsInSightCount); // distribution in range [1, 100]
 		int rand = dist6(rng);
-
-		this -> commitment_ = Target(0, 0, rand);
+		int newCommitment = targetsInSight[rand-1];
+		std::cout << "target selected: " << targetsInSight[rand-1] << " by random number: " << rand << std::endl;
+		this -> commitment_ = Target(0, 0, newCommitment);
 		//cout << "Time: " << time_ <<" Perception new commitment id: " << commitment_.id << std::endl;
 		Led color;
 		color.color= this -> commitment_.id == 1 ? "yellow" : (this -> commitment_.id == 2 ? "green" : "magenta");
@@ -356,7 +377,8 @@ void Control::setCommitmentPerception(){
 void Control::updateCommitment() {
 
 	float dice = float(randint()%100) / 100.0;
-	if ( dice <= pPerceiveLightSources_ ){
+	if ( dice < pPerceiveLightSources_ ){
+		std::cout <<"Using sensor for update because: " << dice << std::endl;
 		setCommitmentPerception();
 	}
 	else{
@@ -657,10 +679,29 @@ void Control::proxCallback(const ProximityList proxList){
 						closestDist = blob.distance;
 					}
 				}
-				commitment_.id = closestBlob.color == "yellow" ? 1 : ("green" ? 2 : 3);
-				targetCommitment_ = closestBlob.color == "yellow" ? 1 : ("green" ? 2 : 3);
 				Led color;
-				color.color= this -> commitment_.id == 1 ? "yellow" : (2 ? "green" : "magenta");
+				/**
+				 * Assign a new commitment ID based on the closed light source
+				 * Use light colors to distinguish between different light sources
+				 */
+				if (closestBlob.color == "yellow"){
+					commitment_.id = 1;	
+					targetCommitment_ = 1;
+					color.color = 1;
+				}
+				else if (closestBlob.color == "green"){
+					commitment_.id = 2;
+					targetCommitment_ = 2;
+					color.color = 2;
+				}
+				else if (closestBlob.color == "magenta"){
+					commitment_.id = 3;
+					targetCommitment_ = 3;
+					color.color = 3;
+				}
+				//commitment_.id = closestBlob.color == "yellow" ? 1 : ("green" ? 2 : 3);
+				//targetCommitment_ = closestBlob.color == "yellow" ? 1 : ("green" ? 2 : 3);
+				
 				
 				this -> cmdLedPublisher_ -> publish(color);
 
