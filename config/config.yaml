@@ -3,11 +3,13 @@ controller:
     broadcastTime: 1
     commitmentUpdateTime: 5
     pPerceiveLightSources: 0.1
-    numberOfTargets: 3
+    numberOfTargets: 4
+    colorsOfTargets: ["yellow", "green", "magenta", "brown"]
+    fov: 90.0
     commsType: 0
     hardTurnOnAngleThreshold: 50.0
-    softTurnOnAngleThreshold: 20.0
+    softTurnOnAngleThreshold: 20.5
     noTurnOnAngleThreshold: 10.0
     maxSpeed: 10.0
     logDirectoryName: "/mnt"
-    experimentName: "3_targets_collisions_10_perception_50_ht"
+    experimentName: "4_targets_collisions_10_perception_50_ht"
