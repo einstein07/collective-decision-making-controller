@@ -57,47 +57,49 @@
   <!-- *********************** -->
   <!-- * Arena configuration * -->
   <!-- *********************** -->
-  <arena size="20,80,2" center="0,0,0.5">
-  <box id="wall_north" size="20,0.1,0.5" movable="false">
+  <arena size="30,80,2" center="0,0,0.5">
+  <box id="wall_north" size="30,0.1,0.5" movable="false">
   	<body position="0,40,0" orientation="0,0,0"/>
   </box>	
-  <box id="wall_south" size="20,0.1,0.5" movable="false">
+  <box id="wall_south" size="30,0.1,0.5" movable="false">
 	<body position="0,-40,0" orientation="0,0,0"/>
   </box>
   <box id="wall_east" size="0.1,80,0.5" movable="false">
-	<body position="10,0,0" orientation="0,0,0"/>
+	<body position="15,0,0" orientation="0,0,0"/>
   </box>
   <box id="wall_west" size="0.1,80,0.5" movable="false">
-	<body position="-10,0,0" orientation="0,0,0"/>
+	<body position="-15,0,0" orientation="0,0,0"/>
   </box>
 
-  <!--  <light id="yellowLight"
-           position="2,18,0.1"
-           orientation="0,0,0"
-           color="yellow"
-           intensity="100.0"
-           medium="leds" /> -->
    <light id="yellowLight"
-           position="8,37.58,0.4"
+           position="12,36.72,0.4"
            orientation="0,0,0"
            color="yellow"
            intensity="100.0"
            medium="leds">
    </light>
    <light id="greenLight"
-           position="-8,37.58,0.4"
+           position="4,36.72,0.4"
            orientation="0,0,0"
            color="green"
            intensity="100.0"
            medium="leds"> 
    </light> 
    <light id="magentaLight"
-           position="0,38,0.4"
+           position="-4,36.72,0.4"
            orientation="0,0,0"
            color="magenta"
            intensity="100.0"
            medium="leds"> 
+   </light>
+   <light id="brownLight"
+           position="-12,36.72,0.4"
+           orientation="0,0,0"
+           color="brown"
+           intensity="100.0"
+           medium="leds">
    </light> 
+            
    <!--<cylinder id="green_puck" height="0.05" radius="0.05" mass="0.1"
                   movable="true">
           <body position="-1,-17,0" orientation="0,0,0"/>
