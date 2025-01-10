@@ -48,10 +48,10 @@
   <!-- ****************** -->
   <loop_functions library="libtrajectory_loop_functions.so"
                   label="trajectory_loop_functions" >
-  <logging directory="/home/sindiso/ros2_dev/dev-logs"
+  <logging directory="/mnt"
             frequency="5"
-            light_radius="4"
-            experiment_name="10_ticks_per_second" />
+            light_radius="1"
+            experiment_name="4_targets_collisions_10_perception_50_ht" />
   </loop_functions>
 
   <!-- *********************** -->
