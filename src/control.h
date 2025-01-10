@@ -71,7 +71,7 @@ public:
 	  /* Maximum wheel speed */
 	  float MaxSpeed;
 
-	  void Init(/**TConfigurationNode& t_tree*/);
+	  void Init();
    };
 	enum robotState
 	{
@@ -163,6 +163,9 @@ public:
 
    void initLogging();
 
+   int findIndex(const std::vector<std::string>& my_vector, const std::string& value);
+
+
    void log();
 
 
@@ -225,6 +228,8 @@ private:
 	*****************************************/
 	/* current commitment */
 	uint8_t targetCommitment_;
+	/* current commitment */
+	uint8_t rxTargetCommitment_;
 
 	/* Location coordinates of current commitment */
 	Point targetGPS_;
@@ -253,9 +258,15 @@ private:
 
 	// Probability to update commitment using perception
 	float pPerceiveLightSources_;
-
-	// Probability to update commitment using perception
+	
+	// The number of targets in the environment
 	int numOfTargets_;
+
+	// Colors of targets in the environment
+	std::vector<std::string> colorsOfTargets_;
+
+	// Robots field of view to dicsreminate against other targets after 1st birfucation
+	float fov_;
 
 	std::string gStartTime_;
 
