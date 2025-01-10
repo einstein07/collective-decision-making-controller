@@ -11,5 +11,5 @@ controller:
     softTurnOnAngleThreshold: 20.5
     noTurnOnAngleThreshold: 10.0
     maxSpeed: 10.0
-    logDirectoryName: "/home/sindiso/ros2_dev/dev-logs"
-    experimentName: "10_ticks_per_second"
+    logDirectoryName: "/mnt"
+    experimentName: "4_targets_collisions_10_perception_50_ht"
