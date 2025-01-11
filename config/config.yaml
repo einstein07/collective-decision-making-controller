@@ -5,7 +5,7 @@ controller:
     pPerceiveLightSources: 0.1
     numberOfTargets: 4
     colorsOfTargets: ["yellow", "green", "magenta", "brown"]
-    fov: 45.0
+    fov: 35.0
     commsType: 0
     hardTurnOnAngleThreshold: 50.0
     softTurnOnAngleThreshold: 20.5
