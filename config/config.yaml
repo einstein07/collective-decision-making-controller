@@ -5,11 +5,11 @@ controller:
     pPerceiveLightSources: 0.1
     numberOfTargets: 4
     colorsOfTargets: ["yellow", "green", "magenta", "brown"]
-    fov: 25.0
+    fov: 90.0
     commsType: 0
     hardTurnOnAngleThreshold: 25.0
     softTurnOnAngleThreshold: 20.5
     noTurnOnAngleThreshold: 10.0
     maxSpeed: 10.0
     logDirectoryName: "/mnt"
-    experimentName: "4_targets_collisions_10_perception_25_ht_25_fov"
+    experimentName: "4_targets_collisions_10_perception_25_ht_180_fov"
