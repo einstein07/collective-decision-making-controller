@@ -24,8 +24,6 @@ Control::Target::Target(Point coords, int id) : coords(coords), id(id){}
 Control::Target::Target() : id(-1), coords(-1, -1){}
 
 Control::Control(std::shared_ptr<rclcpp::Node> node) :
-	time_(0),
-	stateStartTime_(0),
 	//broadcastTime_(10),
 	//commitmentUpdateTime_(25),
 	rxMessage_(false)
@@ -40,7 +38,13 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 		//cout << "Passive - Comms" << std::endl;
 	//else
 		//cout << "Buffer - Comms" << std::endl;
+	std::mt19937 rng(this -> dev());
+	std::uniform_int_distribution<std::mt19937::result_type> dist6(0, commitmentUpdateTime_); // distribution in range [1, 100]
+	startTime_ = dist6(rng);
+	time_ = startTime_;
+	stateStartTime_ = startTime_;
 	this -> targetCommitment_ = -1;
+	std::cout << "Start time: " << startTime_ << ", target commitment: " << targetCommitment_ << std::endl;
 
 	this -> rxPacketList_.n = 0;
 
@@ -112,7 +116,7 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 void Control::initTargets(){
 
 	this -> targetCommitment_ = (std::stoi( std::string(ns_).substr (4) ) % numOfTargets_) + 1;
-	
+	std::cout << "Init - targets commitment: " << targetCommitment_ << std::endl;
 	/**Led color;
 	color.color = colorsOfTargets_[targetCommitment_ - 1];
 	this -> cmdLedPublisher_ -> publish(color);*/
@@ -171,7 +175,9 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
    /* Get the length of the heading vector */
    Real fHeadingLength = c_heading.Length();
    /* Clamp the speed so that it's not greater than MaxSpeed */
-   Real fBaseAngularWheelSpeed = Min<Real>(fHeadingLength, m_sWheelTurningParams.MaxSpeed);
+   // We want constant speed for the wheels, so we use MaxSpeed
+	Real fBaseAngularWheelSpeed = m_sWheelTurningParams.MaxSpeed;
+   //Real fBaseAngularWheelSpeed = Min<Real>(fHeadingLength, m_sWheelTurningParams.MaxSpeed);
 
    /* State transition logic */
    if(m_sWheelTurningParams.TurningMechanism == SWheelTurningParams::HARD_TURN) {
@@ -208,6 +214,7 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> targetCommitment_ != -1 ){
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
+		//std::cout << "Time: " << this -> time_ << " No-turn. Angle: " << ToDegrees(c_heading.Angle()) << std::endl;
          break;
       }
       case SWheelTurningParams::SOFT_TURN: {
@@ -221,6 +228,7 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> targetCommitment_ != -1 ){
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
+		//std::cout << "Time: " << this -> time_ << " Soft-turn. Angle: " << ToDegrees(c_heading.Angle()) << std::endl;
          break;
       }
       case SWheelTurningParams::HARD_TURN: {
@@ -232,6 +240,7 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
          /* Opposite wheel speeds */
          fSpeed1 = -m_sWheelTurningParams.MaxSpeed;
          fSpeed2 =  m_sWheelTurningParams.MaxSpeed;
+		 //std::cout << "Time: " << this -> time_ << " Hard-turn. Angle: " << ToDegrees(c_heading.Angle()) << std::endl;
          break;
       }
    }
@@ -322,7 +331,7 @@ void Control::setCommitmentPerception(){
 		if (indexOfColor != -1) {
 			if ( abs(blob.angle) <= ( fov_ * (3.141592653589793/180) ) ){
 				targetsInSight[blobsInSightCount] = indexOfColor + 1;
-				//std::cout << "Added target : " << targetsInSight[blobsInSightCount] << std::endl;
+				//std::cout << "Added target, angle of target: " << ( blob.angle * (180/3.141592653589793) ) << ", target ID " << indexOfColor+1 << std::endl;
 				blobsInSightCount++;
 			}
 		}
@@ -344,15 +353,60 @@ void Control::setCommitmentPerception(){
 
 }
 
+void Control::setCommitmentOcclusion(){
+	// Initialize arrays and counters
+	int blobsInSightCount = 0;
+	int targetsInSight[numOfTargets_];
+	std::vector<int> combinedOptions;
+
+	// Check for perceived light sources (same as original)
+	for (Blob blob : blobList.blobs) {
+		int indexOfColor = findIndex(colorsOfTargets_, blob.color);
+		if (indexOfColor != -1) {
+			if (abs(blob.angle) <= (fov_ * (3.141592653589793 / 180))) {
+				targetsInSight[blobsInSightCount] = indexOfColor + 1;
+				blobsInSightCount++;
+			}
+		}
+	}
+	
+	// Add perceived targets to combined options
+	for (int i = 0; i < blobsInSightCount; i++) {
+		combinedOptions.push_back(targetsInSight[i]);
+	}
+	
+	// Add received message commitments to combined options
+	for (Packet currPacket : rxPacketList_.packets) {
+		int receivedCommitment = int(currPacket.data[0]);
+		if (receivedCommitment != 0) { // Only add valid commitments
+			combinedOptions.push_back(receivedCommitment);
+		}
+	}
+
+	std::cout <<" Combined options size: " << combinedOptions.size() << std::endl;
+	// If combined options exist, select one randomly
+	if (!combinedOptions.empty()) {
+		std::mt19937 rng(this->dev());
+		std::uniform_int_distribution<std::mt19937::result_type> dist(0, combinedOptions.size() - 1);
+		int randIndex = dist(rng);
+		this->targetCommitment_ = combinedOptions[randIndex];
+	}
+}
+
 void Control::updateCommitment() {
 
 	float dice = float(randint()%100) / 100.0;
-	if ( dice < pPerceiveLightSources_ ){
-		//std::cout <<"Using sensor for update because: " << dice << std::endl;
-		setCommitmentPerception();
-	}
+	// Occlusion case: concatenate perceived options and received messages
+    if (isOcclusion_) {
+		setCommitmentOcclusion();
+    }
 	else{
-		setCommitmentOpinions();
+		if ( dice < pPerceiveLightSources_ ){
+			setCommitmentPerception();
+		}
+		else{
+			setCommitmentOpinions();
+		}
 	}
 
 	rxMessage_ = false;
@@ -481,6 +535,16 @@ void Control::initializeParameters(){
     maxSpeedDescriptor.description = "Maximum speed for robots.";
     this -> node_ -> declare_parameter("maxSpeed", 10.0, maxSpeedDescriptor);
 
+	/**
+	 * This parameter sets whether we consider occlusion or not.
+	 * Default: false.
+	 */
+    rcl_interfaces::msg::ParameterDescriptor isOcclusionDescriptor;
+    isOcclusionDescriptor.name = "isOcclusion";
+    isOcclusionDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER;
+    isOcclusionDescriptor.description = "Is there occlusion between robots.";
+    this -> node_ -> declare_parameter("isOcclusion", 0, isOcclusionDescriptor);
+
 	/****************************************
 	 * Logging related parameters
 	 ***************************************/
@@ -551,6 +615,11 @@ void Control::configure(){
 
     this -> node_ -> get_parameter<float>("maxSpeed", m_sWheelTurningParams.MaxSpeed);
     RCLCPP_INFO(node_logger, "maximum speed: %f", m_sWheelTurningParams.MaxSpeed);
+
+	int occlusion_int;
+	this -> node_ -> get_parameter<int>("isOcclusion", occlusion_int);
+	isOcclusion_ = static_cast<bool>(occlusion_int);
+    RCLCPP_INFO(node_logger, "Occlusion between robots: %s", isOcclusion_ ? "true" : "false");
 
 	/************************************************
 	 * Logs related configurations
