@@ -50,25 +50,25 @@
                   label="trajectory_loop_functions" >
   <logging directory="/mnt"
             frequency="5"
-            light_radius="4"
-            experiment_name="50_thresh_collisions" />
+            light_radius="1"
+            experiment_name="3_targets_collisions_10_perception_50_ht" />
   </loop_functions>
 
   <!-- *********************** -->
   <!-- * Arena configuration * -->
   <!-- *********************** -->
-  <arena size="10,40,2" center="0,0,0.5">
-  <box id="wall_north" size="10,0.1,0.5" movable="false">
+  <arena size="40,40,2" center="0,0,0.5">
+  <box id="wall_north" size="40,0.1,0.5" movable="false">
   	<body position="0,20,0" orientation="0,0,0"/>
   </box>	
-  <box id="wall_south" size="10,0.1,0.5" movable="false">
+  <box id="wall_south" size="40,0.1,0.5" movable="false">
 	<body position="0,-20,0" orientation="0,0,0"/>
   </box>
   <box id="wall_east" size="0.1,40,0.5" movable="false">
-	<body position="5,0,0" orientation="0,0,0"/>
+	<body position="20,0,0" orientation="0,0,0"/>
   </box>
   <box id="wall_west" size="0.1,40,0.5" movable="false">
-	<body position="-5,0,0" orientation="0,0,0"/>
+	<body position="-20,0,0" orientation="0,0,0"/>
   </box>
 
   <!--  <light id="yellowLight"
@@ -78,16 +78,23 @@
            intensity="100.0"
            medium="leds" /> -->
    <light id="yellowLight"
-           position="4,18,0.4"
+           position="9.5,16.45,0.4"
            orientation="0,0,0"
            color="yellow"
            intensity="100.0"
            medium="leds">
    </light>
    <light id="greenLight"
-           position="-4,18,0.4"
+           position="-9.5,16.45,0.4"
            orientation="0,0,0"
            color="green"
+           intensity="100.0"
+           medium="leds"> 
+   </light> 
+   <light id="magentaLight"
+           position="0,19,0.4"
+           orientation="0,0,0"
+           color="magenta"
            intensity="100.0"
            medium="leds"> 
    </light> 

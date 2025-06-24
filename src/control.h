@@ -71,7 +71,7 @@ public:
 	  /* Maximum wheel speed */
 	  float MaxSpeed;
 
-	  void Init(/**TConfigurationNode& t_tree*/);
+	  void Init();
    };
 	enum robotState
 	{
@@ -155,6 +155,8 @@ public:
 
    void setCommitmentPerception();
 
+   void setCommitmentOcclusion();
+
    void updateCommitment();
 
    void initializeParameters();
@@ -162,6 +164,9 @@ public:
    void configure();
 
    void initLogging();
+
+   int findIndex(const std::vector<std::string>& my_vector, const std::string& value);
+
 
    void log();
 
@@ -202,6 +207,7 @@ private:
 
 
 	int time_;
+	int startTime_;
 	int stateStartTime_;
 
 	Twist lastTwist_;
@@ -224,7 +230,9 @@ private:
 	* Communication variables
 	*****************************************/
 	/* current commitment */
-	uint8_t targetCommitment_;
+	int targetCommitment_;
+	/* current commitment */
+	uint8_t rxTargetCommitment_;
 
 	/* Location coordinates of current commitment */
 	Point targetGPS_;
@@ -253,9 +261,18 @@ private:
 
 	// Probability to update commitment using perception
 	float pPerceiveLightSources_;
-
-	// Probability to update commitment using perception
+	
+	// The number of targets in the environment
 	int numOfTargets_;
+
+	// Is there occlusion between agents in the environment
+	int isOcclusion_;
+
+	// Colors of targets in the environment
+	std::vector<std::string> colorsOfTargets_;
+
+	// Robots field of view to dicsreminate against other targets after 1st birfucation
+	float fov_;
 
 	std::string gStartTime_;
 

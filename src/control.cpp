@@ -14,13 +14,7 @@ using std::placeholders::_1;
 
 std::ofstream gLogFile;
 
-void Control::SWheelTurningParams::Init() {
-	TurningMechanism = NO_TURN;
-	HardTurnOnAngleThreshold = ToRadians(CDegrees(50));//25,50
-	SoftTurnOnAngleThreshold = ToRadians(CDegrees(10));//22.5, 45
-	NoTurnAngleThreshold = ToRadians(CDegrees(5));//15,30
-	MaxSpeed = 10;
-}
+void Control::SWheelTurningParams::Init() {}
 
 Control::Point::Point(float x, float y){this->x=x;this->y=y;};
 Control::Point::Point(){this->x=0;this->y=0;};
@@ -30,8 +24,6 @@ Control::Target::Target(Point coords, int id) : coords(coords), id(id){}
 Control::Target::Target() : id(-1), coords(-1, -1){}
 
 Control::Control(std::shared_ptr<rclcpp::Node> node) :
-	time_(0),
-	stateStartTime_(0),
 	//broadcastTime_(10),
 	//commitmentUpdateTime_(25),
 	rxMessage_(false)
@@ -46,7 +38,13 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 		//cout << "Passive - Comms" << std::endl;
 	//else
 		//cout << "Buffer - Comms" << std::endl;
-	this -> commitment_.id = -1;
+	std::mt19937 rng(this -> dev());
+	std::uniform_int_distribution<std::mt19937::result_type> dist6(0, commitmentUpdateTime_); // distribution in range [1, 100]
+	startTime_ = dist6(rng);
+	time_ = startTime_;
+	stateStartTime_ = startTime_;
+	this -> targetCommitment_ = -1;
+	std::cout << "Start time: " << startTime_ << ", target commitment: " << targetCommitment_ << std::endl;
 
 	this -> rxPacketList_.n = 0;
 
@@ -115,27 +113,13 @@ Control::Control(std::shared_ptr<rclcpp::Node> node) :
 
 }
 
-void Control::transition(robotState newState){
-	this -> state_ = newState;
-	this ->  stateStartTime_ = this -> time_;
-}
-
 void Control::initTargets(){
-	lightSources_[0] = "yellow";
-	lightSources_[1] = "green";
-	lightSources_[2] = numOfTargets_ == 3 ? "magenta" : "none";
-	if (numOfTargets_ == 2){
-		this -> commitment_.id = std::stoi( std::string(ns_).substr (4) ) <= 10 ? 1 : 2;
-	}
-	else if (numOfTargets_ == 3){
-		this -> commitment_.id = std::stoi( std::string(ns_).substr (4) ) <= 6 ? 1 : (std::stoi( std::string(ns_).substr (4) ) <= 13 ? 2 : 3);
-	}
-	
-	this -> targetCommitment_ = 0;
-	
-	Led color;
-	color.color = this -> commitment_.id == 1 ? "yellow" : (this -> commitment_.id == 2 ? "green" : "magenta") ;
-	this -> cmdLedPublisher_ -> publish(color);
+
+	this -> targetCommitment_ = (std::stoi( std::string(ns_).substr (4) ) % numOfTargets_) + 1;
+	std::cout << "Init - targets commitment: " << targetCommitment_ << std::endl;
+	/**Led color;
+	color.color = colorsOfTargets_[targetCommitment_ - 1];
+	this -> cmdLedPublisher_ -> publish(color);*/
 
 }
 
@@ -191,7 +175,9 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
    /* Get the length of the heading vector */
    Real fHeadingLength = c_heading.Length();
    /* Clamp the speed so that it's not greater than MaxSpeed */
-   Real fBaseAngularWheelSpeed = Min<Real>(fHeadingLength, m_sWheelTurningParams.MaxSpeed);
+   // We want constant speed for the wheels, so we use MaxSpeed
+	Real fBaseAngularWheelSpeed = m_sWheelTurningParams.MaxSpeed;
+   //Real fBaseAngularWheelSpeed = Min<Real>(fHeadingLength, m_sWheelTurningParams.MaxSpeed);
 
    /* State transition logic */
    if(m_sWheelTurningParams.TurningMechanism == SWheelTurningParams::HARD_TURN) {
@@ -225,9 +211,10 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
          /**
 		  * Broadcast  opinion and update opinion state
 		  */
-		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
+		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> targetCommitment_ != -1 ){
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
+		//std::cout << "Time: " << this -> time_ << " No-turn. Angle: " << ToDegrees(c_heading.Angle()) << std::endl;
          break;
       }
       case SWheelTurningParams::SOFT_TURN: {
@@ -238,20 +225,22 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
          /**
 		  * Broadcast  opinion and update opinion state
 		  */
-		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> commitment_.id != -1 ){
+		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0 && this -> targetCommitment_ != -1 ){
 			this -> cmdRabPublisher_ -> publish(broadcast());
 		}
+		//std::cout << "Time: " << this -> time_ << " Soft-turn. Angle: " << ToDegrees(c_heading.Angle()) << std::endl;
          break;
       }
       case SWheelTurningParams::HARD_TURN: {
     	  /** We can broadcast while doing a hard turn but only when utilizing PASSIVE communication */
     	  if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0
-    			  && this -> commitment_.id != -1 && this -> commsType_ == PASSIVE ){
+    			  && this -> targetCommitment_ != -1 && this -> commsType_ == PASSIVE ){
 			this -> cmdRabPublisher_ -> publish(broadcast(true));
     	  }
          /* Opposite wheel speeds */
          fSpeed1 = -m_sWheelTurningParams.MaxSpeed;
          fSpeed2 =  m_sWheelTurningParams.MaxSpeed;
+		 //std::cout << "Time: " << this -> time_ << " Hard-turn. Angle: " << ToDegrees(c_heading.Angle()) << std::endl;
          break;
       }
    }
@@ -277,13 +266,13 @@ Twist Control::SetWheelSpeedsFromVector(const CVector2& c_heading) {
 Packet Control::broadcast(bool uncommitted){
 	Packet packet;
 	
-	float targetToBroadcast = uncommitted? 0.0f : float( this -> commitment_.id );
+	float targetToBroadcast = uncommitted? 0.0f : float( this -> targetCommitment_ );
 	// For logging purposes
 	if (uncommitted){
 		opinionsList.push_back(0);
 	}
 	else{
-		opinionsList.push_back(commitment_.id);
+		opinionsList.push_back(targetCommitment_);
 		
 	}
 	
@@ -309,7 +298,8 @@ void Control::setCommitmentOpinions() {
 					float(0),
 					float(0),
 					int(currPacket.data[0]));
-			if ( rxCommitment_.id != 0 ){
+			this -> rxTargetCommitment_ = int(currPacket.data[0]);
+			if ( rxTargetCommitment_ != 0 ){
 				rxMsgType_ = RECRUITMENT_MSG;
 			}
 			else {
@@ -320,54 +310,110 @@ void Control::setCommitmentOpinions() {
 		}
 		index++;
 	}
-		if ( rxMessage_ && this -> commitment_.id != this -> rxCommitment_.id  && rxMsgType_ == RECRUITMENT_MSG) {			
-			this -> commitment_ = Target(rxCommitment_.coords, rxCommitment_.id);
-			//cout << "Time: " << time_ << " Opinion new commitment id: " << rxCommitment_.id << std::endl;
-			Led color;
-			color.color= this -> commitment_.id == 1 ? "yellow" : (this -> commitment_.id == 2 ? "green" : "magenta");
-			this -> cmdLedPublisher_ -> publish(color);
+		if ( rxMessage_ && this -> targetCommitment_ != this -> rxTargetCommitment_  && rxMsgType_ == RECRUITMENT_MSG) {			
+			this -> targetCommitment_ = rxTargetCommitment_;
+			//cout << "Time: " << time_ << " Opinion new commitment id: " << targetCommitment_ << std::endl;
+			/**Led color;
+			color.color= colorsOfTargets_ [this -> targetCommitment_ - 1];
+			this -> cmdLedPublisher_ -> publish(color);*/
 		}
 
 }
 
 void Control::setCommitmentPerception(){
 	int blobsInSightCount = 0;
+	int targetsInSight [numOfTargets_];
 	for ( Blob blob : blobList.blobs ){
-		if ( blob.color == "yellow" || blob.color == "green" || blob.color == "magenta" ){
-			blobsInSightCount++;
+		
+		int indexOfColor = findIndex(colorsOfTargets_, blob.color);
+		//std::cout << "Index of detected target color: " << indexOfColor << std::endl;
+		// If found, add to targets in sight
+		if (indexOfColor != -1) {
+			if ( abs(blob.angle) <= ( fov_ * (3.141592653589793/180) ) ){
+				targetsInSight[blobsInSightCount] = indexOfColor + 1;
+				//std::cout << "Added target, angle of target: " << ( blob.angle * (180/3.141592653589793) ) << ", target ID " << indexOfColor+1 << std::endl;
+				blobsInSightCount++;
+			}
 		}
+
 	}
 	if (blobsInSightCount > 0){
 		std::mt19937 rng(this -> dev());
 		std::uniform_int_distribution<std::mt19937::result_type> dist6(1, blobsInSightCount); // distribution in range [1, 100]
 		int rand = dist6(rng);
-
-		this -> commitment_ = Target(0, 0, rand);
-		//cout << "Time: " << time_ <<" Perception new commitment id: " << commitment_.id << std::endl;
-		Led color;
-		color.color= this -> commitment_.id == 1 ? "yellow" : (this -> commitment_.id == 2 ? "green" : "magenta");
-		this -> cmdLedPublisher_ -> publish(color);
+		//std::cout << "target selected: " << targetsInSight[rand-1] << " by random number: " << rand << std::endl;
+		this -> targetCommitment_ = targetsInSight[rand-1];;
+		//cout << "Time: " << time_ <<" Perception new commitment id: " << targetCommitment_ << std::endl;
+		/**Led color;
+		color.color= colorsOfTargets_ [this -> targetCommitment_ -1 ];
+		this -> cmdLedPublisher_ -> publish(color);*/
 
 	}
 
 
 }
 
+void Control::setCommitmentOcclusion(){
+	// Initialize arrays and counters
+	int blobsInSightCount = 0;
+	int targetsInSight[numOfTargets_];
+	std::vector<int> combinedOptions;
+
+	// Check for perceived light sources (same as original)
+	for (Blob blob : blobList.blobs) {
+		int indexOfColor = findIndex(colorsOfTargets_, blob.color);
+		if (indexOfColor != -1) {
+			if (abs(blob.angle) <= (fov_ * (3.141592653589793 / 180))) {
+				targetsInSight[blobsInSightCount] = indexOfColor + 1;
+				blobsInSightCount++;
+			}
+		}
+	}
+	
+	// Add perceived targets to combined options
+	for (int i = 0; i < blobsInSightCount; i++) {
+		combinedOptions.push_back(targetsInSight[i]);
+	}
+	
+	// Add received message commitments to combined options
+	for (Packet currPacket : rxPacketList_.packets) {
+		int receivedCommitment = int(currPacket.data[0]);
+		if (receivedCommitment != 0) { // Only add valid commitments
+			combinedOptions.push_back(receivedCommitment);
+		}
+	}
+
+	std::cout <<" Combined options size: " << combinedOptions.size() << std::endl;
+	// If combined options exist, select one randomly
+	if (!combinedOptions.empty()) {
+		std::mt19937 rng(this->dev());
+		std::uniform_int_distribution<std::mt19937::result_type> dist(0, combinedOptions.size() - 1);
+		int randIndex = dist(rng);
+		this->targetCommitment_ = combinedOptions[randIndex];
+	}
+}
+
 void Control::updateCommitment() {
 
 	float dice = float(randint()%100) / 100.0;
-	if ( dice <= pPerceiveLightSources_ ){
-		setCommitmentPerception();
-	}
+	// Occlusion case: concatenate perceived options and received messages
+    if (isOcclusion_) {
+		setCommitmentOcclusion();
+    }
 	else{
-		setCommitmentOpinions();
+		if ( dice < pPerceiveLightSources_ ){
+			setCommitmentPerception();
+		}
+		else{
+			setCommitmentOpinions();
+		}
 	}
 
 	rxMessage_ = false;
 	this -> rxPacketList_.packets.clear();
 	this -> rxPacketList_.n = 0;
 	for ( Packet currPacket : rxPacketList_.packets ){
-		std::cout << "Commitment ID not deleted: " << this -> rxCommitment_.id << std::endl;
+		std::cout << "Commitment ID not deleted: " << this -> rxTargetCommitment_ << std::endl;
 	}
 	msgBuffer_.clear();
 	opinionsList.clear();
@@ -415,6 +461,29 @@ void Control::initializeParameters(){
     numberOfTargetsDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER;
     numberOfTargetsDescriptor.description = "Number of targets in the environment.";
     this -> node_ -> declare_parameter("numberOfTargets", 2, numberOfTargetsDescriptor);
+
+	/**
+	 * This parameter sets the sets the colors of targets in the environment
+	 * Default: yellow, green
+	 */
+    /***rcl_interfaces::msg::ParameterDescriptor colorsOfTargetsDescriptor;
+    colorsOfTargetsDescriptor.name = "colorsOfTargets";
+    colorsOfTargetsDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER;
+    colorsOfTargetsDescriptor.description = "Colors of targets in the environment.";
+    this -> node_ -> declare_parameter("colorsOfTargets", 2, colorsOfTargetsDescriptor);*/
+	this-> node_ -> declare_parameter<std::vector<std::string>>("colorsOfTargets", {"yellow", "green"});
+
+	/**
+	 * This parameter sets the probability to use the agents' perception
+	 * to update commitments, i.e., instead of using received opions.
+	 * Default: 0.1 (10%)
+	 */
+    rcl_interfaces::msg::ParameterDescriptor fovDescriptor;
+    fovDescriptor.name = "fov";
+    fovDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE;
+    fovDescriptor.description = "Field of View .";
+    this -> node_ -> declare_parameter("fov", 180.0, fovDescriptor);
+
 
 	/**
 	 * This parameter sets the communication type between agents - Passive or Buffer.
@@ -466,6 +535,16 @@ void Control::initializeParameters(){
     maxSpeedDescriptor.description = "Maximum speed for robots.";
     this -> node_ -> declare_parameter("maxSpeed", 10.0, maxSpeedDescriptor);
 
+	/**
+	 * This parameter sets whether we consider occlusion or not.
+	 * Default: false.
+	 */
+    rcl_interfaces::msg::ParameterDescriptor isOcclusionDescriptor;
+    isOcclusionDescriptor.name = "isOcclusion";
+    isOcclusionDescriptor.type = rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER;
+    isOcclusionDescriptor.description = "Is there occlusion between robots.";
+    this -> node_ -> declare_parameter("isOcclusion", 0, isOcclusionDescriptor);
+
 	/****************************************
 	 * Logging related parameters
 	 ***************************************/
@@ -511,6 +590,11 @@ void Control::configure(){
 	this -> node_ -> get_parameter<int>("numberOfTargets", numOfTargets_);
     RCLCPP_INFO(node_logger, "number of light sources in the environment: %d", numOfTargets_);
 
+	this-> node_ -> get_parameter("colorsOfTargets", colorsOfTargets_);
+
+	this -> node_ -> get_parameter<float>("fov", fov_);
+    RCLCPP_INFO(node_logger, "field of view of agent: %f", fov_);
+
 	int comms;
 	this -> node_ -> get_parameter<int>("commsType", comms);
     RCLCPP_INFO(node_logger, "communication type: %d", comms);
@@ -531,6 +615,11 @@ void Control::configure(){
 
     this -> node_ -> get_parameter<float>("maxSpeed", m_sWheelTurningParams.MaxSpeed);
     RCLCPP_INFO(node_logger, "maximum speed: %f", m_sWheelTurningParams.MaxSpeed);
+
+	int occlusion_int;
+	this -> node_ -> get_parameter<int>("isOcclusion", occlusion_int);
+	isOcclusion_ = static_cast<bool>(occlusion_int);
+    RCLCPP_INFO(node_logger, "Occlusion between robots: %s", isOcclusion_ ? "true" : "false");
 
 	/************************************************
 	 * Logs related configurations
@@ -605,7 +694,7 @@ void Control::rabCallback(const PacketList packets){
  * Proximity callback function
  *************************/
 void Control::proxCallback(const ProximityList proxList){
-	if (time_ == 0 || this -> commitment_.id == -1){
+	if (time_ == 0 || this -> targetCommitment_ == -1){
 		initTargets();
 		//cout << "Time: " << time_ << " Initializing targets" << std::endl;
 	}
@@ -649,7 +738,7 @@ void Control::proxCallback(const ProximityList proxList){
 			/**
 			 * Not committed to a light source yet
 			 */
-			if ( this -> commitment_.id == -1){
+			if ( this -> targetCommitment_ == -1){
 				for ( Blob blob : blobList.blobs ){
 					if ( blob.distance < closestDist && blob.color != "red"){
 						closestBlobIsNull = false;
@@ -657,12 +746,17 @@ void Control::proxCallback(const ProximityList proxList){
 						closestDist = blob.distance;
 					}
 				}
-				commitment_.id = closestBlob.color == "yellow" ? 1 : ("green" ? 2 : 3);
-				targetCommitment_ = closestBlob.color == "yellow" ? 1 : ("green" ? 2 : 3);
-				Led color;
-				color.color= this -> commitment_.id == 1 ? "yellow" : (2 ? "green" : "magenta");
-				
-				this -> cmdLedPublisher_ -> publish(color);
+				//Led color;
+				/**
+				 * Assign a new commitment ID based on the closed light source
+				 * Use light colors to distinguish between different light sources
+				 */
+
+				int indexOfColor = findIndex(colorsOfTargets_, closestBlob.color);
+				// If found, add to targets in sight
+				if (indexOfColor != -1) {
+					targetCommitment_ = indexOfColor + 1;
+				}
 
 			}
 			/**
@@ -670,7 +764,7 @@ void Control::proxCallback(const ProximityList proxList){
 			 */
 			else{
 				for ( Blob blob : blobList.blobs ){
-					if ( blob.color == lightSources_[commitment_.id - 1] ){
+					if ( blob.color == colorsOfTargets_[targetCommitment_ - 1] ){
 						closestBlobIsNull = false;
 						closestBlob = blob;
 					}
@@ -701,7 +795,9 @@ void Control::proxCallback(const ProximityList proxList){
 	 */
 
 	Twist twist;
-
+	/**
+	 * Currently set up not to enter this state, i.e. no collisions avoidance
+	 */
 	if ( this -> state_ == robotState::AVOID ){
 		if (closestObsIsNull){
 			twist = this -> lastTwist_;
@@ -713,7 +809,7 @@ void Control::proxCallback(const ProximityList proxList){
 		 * If it is time to broadcast just broadcast nonentheless
 		 */
 		if ( this -> time_ > 0 && this -> time_ % this -> broadcastTime_ == 0
-				&& this -> commitment_.id != -1 && this -> commsType_ == PASSIVE ){
+				&& this -> targetCommitment_ != -1 && this -> commsType_ == PASSIVE ){
 			this -> cmdRabPublisher_ -> publish(broadcast(true));
 		}
 	}
@@ -748,6 +844,18 @@ void Control::proxCallback(const ProximityList proxList){
 
 }
 
+int Control::findIndex(const std::vector<std::string>& my_vector, const std::string& value) {
+    // Use std::find to locate the value in the vector
+    auto it = std::find(my_vector.begin(), my_vector.end(), value);
+
+    // If found, calculate and return the index
+    if (it != my_vector.end()) {
+        return std::distance(my_vector.begin(), it); // Get the index
+    } else {
+        return -1; // Return -1 if the value is not found
+    }
+}
+
 void Control::log(){
 	int lightInSight = (this -> lightList.n > 0)? 1 : 0;
 
@@ -768,7 +876,7 @@ void Control::log(){
 	}
 	
 	stringstream logLine;
-	logLine << time_ << ", " << commitment_.id << ", " << oss.str() << ", "<< lightInSight;
+	logLine << time_ << ", " << targetCommitment_ << ", " << oss.str() << ", "<< lightInSight;
 	Logger::gRobotStateLogger->write(logLine.str());
 	Logger::gRobotStateLogger->write(std::string("\n"));
 	Logger::gRobotStateLogger->flush();
