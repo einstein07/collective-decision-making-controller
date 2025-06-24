@@ -7,10 +7,11 @@ controller:
     colorsOfTargets: ["yellow", "green"]
     fov: 360.0
     commsType: 0
-    hardTurnOnAngleThreshold: 50.0
+    hardTurnOnAngleThreshold: 25.0
     softTurnOnAngleThreshold: 20.5
     noTurnOnAngleThreshold: 10.0
     maxSpeed: 10.0
     logDirectoryName: "/home/sindiso/ros2_dev/dev-logs"
     experimentName: "2_targets_perception_100"
     isOcclusion: 1
+
