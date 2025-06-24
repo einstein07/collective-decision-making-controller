@@ -155,6 +155,8 @@ public:
 
    void setCommitmentPerception();
 
+   void setCommitmentOcclusion();
+
    void updateCommitment();
 
    void initializeParameters();
@@ -205,6 +207,7 @@ private:
 
 
 	int time_;
+	int startTime_;
 	int stateStartTime_;
 
 	Twist lastTwist_;
@@ -227,7 +230,7 @@ private:
 	* Communication variables
 	*****************************************/
 	/* current commitment */
-	uint8_t targetCommitment_;
+	int targetCommitment_;
 	/* current commitment */
 	uint8_t rxTargetCommitment_;
 
@@ -261,6 +264,9 @@ private:
 	
 	// The number of targets in the environment
 	int numOfTargets_;
+
+	// Is there occlusion between agents in the environment
+	int isOcclusion_;
 
 	// Colors of targets in the environment
 	std::vector<std::string> colorsOfTargets_;
